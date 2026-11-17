@@ -15,7 +15,6 @@ web/test-results/
 docs/superpowers/
 
 # Local configuration files (not tracked in git)
-/backend/application/settings.py
 /backend/conf/env.py
 /backend/conf/gcal_service_account.json
 
