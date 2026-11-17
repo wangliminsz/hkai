@@ -8,6 +8,7 @@ from .views import (
     job_pdf,
     jobs,
     portal_options,
+    product_options,
 )
 
 router = DefaultRouter()
@@ -15,6 +16,7 @@ router.register("admin/portals", InsurerPortalViewSet, basename="insurer-portals
 
 urlpatterns = [
     path("portals/", portal_options, name="proposal-portal-options"),
+    path("products/", product_options, name="proposal-product-options"),
     path("admin/internal-users/", internal_users, name="proposal-internal-users"),
     path("jobs/", jobs, name="proposal-jobs"),
     path("jobs/<int:job_id>/", job_detail, name="proposal-job-detail"),

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import quote
 
-from django.http import FileResponse
+from django.core import signing
+from django.http import FileResponse, HttpResponse
 from django.utils.translation import gettext_lazy as _
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -13,12 +15,16 @@ from dvadmin.utils.json_response import ErrorResponse, SuccessResponse
 from dvadmin.utils.permission import SuperuserPermission
 
 from . import paths
+from .engine.locator import Rules
 from .models import InsurerPortal, ProposalJob
-from .permissions import INTERNAL_ROLE_KEY, InternalPermission
+from .permissions import INTERNAL_ROLE_KEY, InternalPermission, is_internal
 from .serializers import InsurerPortalSerializer
 from .tasks import run_proposal_task
 
 logger = logging.getLogger(__name__)
+
+_DOWNLOAD_SALT = "proposal.job.pdf"
+_DOWNLOAD_MAX_AGE = 86400
 
 
 # --------------------------------------------------------------------------
@@ -57,6 +63,35 @@ class InsurerPortalViewSet(ModelViewSet):
 def portal_options(request):
     rows = InsurerPortal.objects.filter(enabled=True).order_by("sort", "id")
     data = [{"id": r.id, "name": r.name, "code": r.code, "driver": r.driver} for r in rows]
+    return SuccessResponse(data=data)
+
+
+def _period_label(period) -> str:
+    return "一次过缴付" if str(period) == "lump" else f"{period}年缴"
+
+
+@api_view(["GET"])
+@permission_classes([InternalPermission])
+def product_options(request):
+    """All proposal products/plans configured in engine/rules.yaml."""
+    products = (Rules().data.get("products") or {})
+    data = []
+    for code, meta in products.items():
+        plans = meta.get("plans") or {}
+        tiers = list((meta.get("tiers") or {}).keys())
+        variants = []
+        if tiers:
+            for tier in tiers:
+                periods = list((plans.get(tier) or {}).keys())
+                variants.append({"tier": tier, "periods": [_period_label(p) for p in periods]})
+        else:
+            variants.append({"tier": "", "periods": [_period_label(p) for p in plans.keys()]})
+        data.append({
+            "code": code,
+            "name": meta.get("name") or code,
+            "category": meta.get("category") or "",
+            "variants": variants,
+        })
     return SuccessResponse(data=data)
 
 
@@ -119,6 +154,17 @@ def internal_users(request):
 # 计划书任务(内部用户)
 # --------------------------------------------------------------------------
 
+def _download_url(job: ProposalJob) -> str:
+    if job.status != "succeeded" or not job.pdf_name:
+        return ""
+    token = signing.dumps(
+        {"job_id": job.id, "user_id": job.user_id},
+        salt=_DOWNLOAD_SALT,
+        compress=True,
+    )
+    return f"/api/proposal/jobs/{job.id}/pdf/?token={quote(token, safe='')}"
+
+
 def _serialize_job(job: ProposalJob) -> dict:
     return {
         "id": job.id,
@@ -130,6 +176,7 @@ def _serialize_job(job: ProposalJob) -> dict:
         "logs": job.logs,
         "error": job.error,
         "pdf_name": job.pdf_name,
+        "download_url": _download_url(job),
         "portal": {"id": job.portal_id, "name": job.portal.name} if job.portal_id else None,
         "created_at": job.create_datetime.strftime("%Y-%m-%d %H:%M:%S") if job.create_datetime else None,
         "finished_at": job.finished_at.strftime("%Y-%m-%d %H:%M:%S") if job.finished_at else None,
@@ -167,14 +214,47 @@ def job_detail(request, job_id: int):
     return SuccessResponse(data=_serialize_job(job))
 
 
+def _download_user(request, job_id: int):
+    """Resolve the requesting user from the JWT header or the signed download token."""
+    user = getattr(request, "user", None)
+    if user is not None and user.is_authenticated:
+        return user
+
+    token = request.GET.get("token", "")
+    if not token:
+        return None
+    try:
+        payload = signing.loads(token, salt=_DOWNLOAD_SALT, max_age=_DOWNLOAD_MAX_AGE)
+    except (signing.BadSignature, signing.SignatureExpired):
+        return None
+    if int(payload.get("job_id") or 0) != job_id:
+        return None
+    return Users.objects.filter(id=payload.get("user_id")).first()
+
+
 @api_view(["GET"])
-@permission_classes([InternalPermission])
 def job_pdf(request, job_id: int):
-    job = ProposalJob.objects.filter(id=job_id, user=request.user).first()
+    # Direct GET links (for browser/Muse download interception) carry a short-lived
+    # signed token because <a href> cannot attach the JWT Authorization header.
+    user = _download_user(request, job_id)
+    if user is None:
+        return HttpResponse("unauthorized", status=401, content_type="text/plain")
+    if not is_internal(user):
+        return HttpResponse("forbidden", status=403, content_type="text/plain")
+
+    job = ProposalJob.objects.filter(id=job_id, user=user).first()
     if job is None or not job.pdf_path:
-        return ErrorResponse(msg=_("没有可下载的 PDF"))
+        return HttpResponse(_("没有可下载的 PDF"), status=404, content_type="text/plain")
     path = paths.pdf_dir() / job.pdf_path
     if not path.exists():
-        return ErrorResponse(msg=_("文件不存在"))
-    return FileResponse(open(path, "rb"), content_type="application/pdf", as_attachment=True,
-                        filename=(job.pdf_name or f"proposal_{job.id}.pdf"))
+        return HttpResponse(_("文件不存在"), status=404, content_type="text/plain")
+
+    resp = FileResponse(
+        open(path, "rb"),
+        content_type="application/pdf",
+        as_attachment=True,
+        filename=(job.pdf_name or f"proposal_{job.id}.pdf"),
+    )
+    resp["Cache-Control"] = "private, no-store"
+    resp["X-Content-Type-Options"] = "nosniff"
+    return resp

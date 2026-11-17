@@ -2,21 +2,38 @@ from __future__ import annotations
 
 import json
 import logging
+from urllib.parse import quote
 
-from django.http import StreamingHttpResponse
+from django.core import signing
+from django.http import FileResponse, HttpResponse, StreamingHttpResponse
 from django.utils.translation import gettext_lazy as _
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from dvadmin.utils.json_response import ErrorResponse, SuccessResponse
 from dvadmin.utils.permission import SuperuserPermission
 
 from . import services
 from .kb import explain as kb_explain
-from .kb import list_products, load_doc_ids, qa
+from .kb import document_paths, list_products, load_doc_ids, load_meta, product_dir, qa
 from .tasks import ingest_product
 
 logger = logging.getLogger(__name__)
+
+_DOC_DOWNLOAD_SALT = "rag.product.document"
+_DOC_DOWNLOAD_MAX_AGE = 3600
+
+
+def _doc_download_url(product_id: str, doc_type: str) -> str:
+    token = signing.dumps(
+        {"product_id": product_id, "doc_type": doc_type},
+        salt=_DOC_DOWNLOAD_SALT,
+        compress=True,
+    )
+    return (
+        f"/api/rag/products/{product_id}/documents/{doc_type}/"
+        f"?token={quote(token, safe='')}"
+    )
 
 
 class CiteStripper:
@@ -69,12 +86,58 @@ def _sse(event: str, data: dict) -> str:
 def products(request):
     items = []
     for product in list_products():
+        product_id = product["product_id"]
         try:
-            indexed = bool(load_doc_ids(product["product_id"]))
+            indexed = bool(load_doc_ids(product_id))
         except Exception:  # noqa: BLE001
             indexed = False
-        items.append({**product, "indexed": indexed})
+        documents = []
+        try:
+            for doc in load_meta(product_id).get("documents", []):
+                doc_type = doc.get("doc_type") or ""
+                documents.append({
+                    "doc_type": doc_type,
+                    "title": doc.get("title") or "",
+                    "file": doc.get("file") or "",
+                    "download_url": _doc_download_url(product_id, doc_type) if doc_type else "",
+                })
+        except Exception:  # noqa: BLE001
+            documents = []
+        items.append({**product, "indexed": indexed, "documents": documents})
     return SuccessResponse(data={"products": items})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def document(request, product_id: str, doc_type: str):
+    """Download a product source document (JWT header or short-lived signed link)."""
+    token = request.GET.get("token", "")
+    if not (getattr(request, "user", None) and request.user.is_authenticated):
+        if not token:
+            return HttpResponse("unauthorized", status=401, content_type="text/plain")
+        try:
+            payload = signing.loads(token, salt=_DOC_DOWNLOAD_SALT, max_age=_DOC_DOWNLOAD_MAX_AGE)
+        except (signing.BadSignature, signing.SignatureExpired):
+            return HttpResponse("unauthorized", status=401, content_type="text/plain")
+        if payload.get("product_id") != product_id or payload.get("doc_type") != doc_type:
+            return HttpResponse("unauthorized", status=401, content_type="text/plain")
+
+    try:
+        path = document_paths(product_id).get(doc_type)
+        base = product_dir(product_id).resolve()
+    except Exception:  # noqa: BLE001
+        return HttpResponse("not found", status=404, content_type="text/plain")
+    if not path or not path.exists():
+        return HttpResponse("not found", status=404, content_type="text/plain")
+    try:
+        path.resolve().relative_to(base)
+    except ValueError:
+        return HttpResponse("forbidden", status=403, content_type="text/plain")
+
+    resp = FileResponse(open(path, "rb"), as_attachment=True, filename=path.name)
+    resp["Cache-Control"] = "private, no-store"
+    resp["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 @api_view(["POST"])

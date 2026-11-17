@@ -31,6 +31,21 @@
 			</div>
 		</header>
 
+		<div v-if="selected?.documents?.length" class="doc-bar">
+			<span class="doc-label"><el-icon><ele-FolderOpened /></el-icon> 產品文件</span>
+			<a
+				v-for="d in selected.documents"
+				:key="d.doc_type + d.file"
+				class="doc-link"
+				:href="docHref(d)"
+				:download="d.file"
+			>
+				<el-icon><ele-Download /></el-icon>
+				<span class="doc-name">{{ DOC_LABEL[d.doc_type] || d.doc_type }}</span>
+				<span class="doc-title">{{ d.title || d.file }}</span>
+			</a>
+		</div>
+
 		<div class="progress" :class="{ active: busy }"><div class="bar"></div></div>
 
 		<main ref="scroller" class="chat">
@@ -105,6 +120,7 @@
 
 <script setup lang="ts" name="ragKb">
 import { ref, onMounted, nextTick, computed } from 'vue';
+import { getBaseURL } from '/@/utils/baseUrl';
 import { getRagProducts, sendChatStream, explainTerm } from './api';
 
 const products = ref<any[]>([]);
@@ -161,6 +177,7 @@ const onCompanyChange = () => {
 const DEFAULT_SAMPLES = ['尚裕終身壽險保什麼？', '危疾加護保(優越版) vs (標準版)有何差異？', '保費未繳的寬限期是多少天？'];
 const sampleList = computed(() => (selected.value?.samples?.length ? selected.value.samples : DEFAULT_SAMPLES));
 const DOC_LABEL: Record<string, string> = { contract: '合約條款', brochure: '產品介紹' };
+const docHref = (d: any) => (d?.download_url ? getBaseURL(d.download_url) : '');
 
 onMounted(async () => {
 	try {
@@ -386,6 +403,45 @@ async function send() {
 			color: var(--rag-muted);
 			cursor: pointer;
 		}
+	}
+}
+
+.doc-bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	padding: 10px 18px;
+	border-bottom: 1px solid var(--rag-border);
+	background: #171717;
+
+	.doc-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 12px;
+		color: var(--rag-faint);
+	}
+
+	.doc-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 12px;
+		color: #9cc3ff;
+		background: #1b2230;
+		border: 1px solid #2f3b4f;
+		border-radius: 6px;
+		padding: 4px 9px;
+		text-decoration: none;
+		transition: border-color 0.2s, background 0.2s;
+	}
+	.doc-link:hover {
+		border-color: var(--rag-primary);
+		background: #202b3d;
+	}
+	.doc-title {
+		color: var(--rag-muted);
 	}
 }
 

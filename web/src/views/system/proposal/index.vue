@@ -8,6 +8,25 @@
 			<span class="muted">选择公司 → 输入客户资料 → 自动登录门户生成计划书 PDF</span>
 		</div>
 
+		<section class="card catalog">
+			<div class="row-between">
+				<strong>可生成计划书（{{ products.length }} 个产品）</strong>
+				<span class="muted">当前系统支持以下险种与缴费期</span>
+			</div>
+			<div class="prod-grid">
+				<div v-for="p in products" :key="p.code" class="prod">
+					<div class="prod-name">
+						{{ p.name }}
+						<span class="muted" v-if="p.category">· {{ p.category }}</span>
+					</div>
+					<div v-for="v in p.variants" :key="v.tier || 'default'" class="prod-variant">
+						<span v-if="v.tier" class="tier">{{ v.tier }}</span>
+						<span>{{ v.periods.join(' / ') }}</span>
+					</div>
+				</div>
+			</div>
+		</section>
+
 		<section class="card">
 			<div class="prompt-wrap">
 				<el-input v-model="text" type="textarea" :rows="4" resize="none" :placeholder="EXAMPLE_PROMPT" />
@@ -32,7 +51,14 @@
 					<span class="muted"> #{{ job.id }}</span>
 					<span v-if="job.portal" class="muted"> · {{ job.portal.name }}</span>
 				</div>
-				<el-button v-if="job.status === 'succeeded' && job.pdf_name" size="small" type="primary" :loading="downloading" @click="download()">
+				<el-button
+					v-if="job.status === 'succeeded' && job.download_url"
+					tag="a"
+					:href="downloadHref(job)"
+					:download="job.pdf_name || 'proposal.pdf'"
+					size="small"
+					type="primary"
+				>
 					下载 PDF（{{ job.pdf_name }}）
 				</el-button>
 			</div>
@@ -54,10 +80,17 @@
 				</el-table-column>
 				<el-table-column prop="text" label="客户资料" min-width="240" show-overflow-tooltip />
 				<el-table-column prop="created_at" label="时间" width="170" />
-				<el-table-column label="操作" width="150" align="center">
+				<el-table-column label="操作" width="100" align="center">
 					<template #default="{ row }">
-						<el-button v-if="row.status === 'succeeded' && row.pdf_name" size="small" @click="download(row)">下载</el-button>
-						<el-button size="small" @click="view(row)">查看</el-button>
+						<el-button
+							v-if="row.status === 'succeeded' && row.download_url"
+							tag="a"
+							:href="downloadHref(row)"
+							:download="row.pdf_name || 'proposal.pdf'"
+							size="small"
+						>
+							下载
+						</el-button>
 					</template>
 				</el-table-column>
 			</el-table>
@@ -68,10 +101,11 @@
 <script setup lang="ts" name="proposalGen">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { getPortals, listJobs, createJob, getJob, downloadPdf } from './api';
+import { getBaseURL } from '/@/utils/baseUrl';
+import { getPortals, getProducts, listJobs, createJob, getJob } from './api';
 
 const EXAMPLE_PROMPT =
-	'例：陈先生，40岁，男性，非吸烟者，投保尚悦人生寿险计划特级计划，保额50万美元，20年缴，居住香港。';
+	'Mr.VIP，男性，40 岁，非吸烟者，投保尚裕寿险，保额 100 万美元，缴费期 20 年，居住地中国大陆';
 
 const copyExample = async () => {
 	try {
@@ -90,11 +124,11 @@ const copyExample = async () => {
 };
 
 const portals = ref<any[]>([]);
+const products = ref<any[]>([]);
 const portalId = ref<number | ''>('');
 const text = ref('');
 const drill = ref(false);
 const submitting = ref(false);
-const downloading = ref(false);
 const loading = ref(false);
 const job = ref<any>(null);
 const history = ref<any[]>([]);
@@ -115,6 +149,15 @@ const loadPortals = async () => {
 		}
 	} catch (e: any) {
 		ElMessage.error(e?.message || '加载公司失败');
+	}
+};
+
+const loadProducts = async () => {
+	try {
+		const res: any = await getProducts();
+		if (res.code === 2000) products.value = res.data || [];
+	} catch (e: any) {
+		ElMessage.error(e?.message || '加载可生成计划书失败');
 	}
 };
 
@@ -173,29 +216,10 @@ const submit = async () => {
 	}
 };
 
-const view = async (row: any) => {
-	const res: any = await getJob(row.id);
-	if (res.code === 2000) {
-		job.value = res.data;
-		poll();
-	}
-};
-
-const download = async (row?: any) => {
-	const j = row || job.value;
-	if (!j) return;
-	downloading.value = true;
-	try {
-		await downloadPdf(j.id, j.pdf_name);
-	} catch (e: any) {
-		ElMessage.error(e?.message || '下载失败');
-	} finally {
-		downloading.value = false;
-	}
-};
+const downloadHref = (row: any) => (row?.download_url ? getBaseURL(row.download_url) : '');
 
 onMounted(async () => {
-	await loadPortals();
+	await Promise.all([loadPortals(), loadProducts()]);
 	loadHistory();
 });
 onUnmounted(() => {
@@ -239,6 +263,37 @@ onUnmounted(() => {
 		border-radius: 12px;
 		padding: 16px 18px;
 		margin-bottom: 14px;
+	}
+	.catalog {
+		padding-bottom: 14px;
+	}
+	.prod-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 10px 18px;
+		margin-top: 12px;
+	}
+	.prod {
+		border: 1px solid var(--p-border-2);
+		border-radius: 8px;
+		padding: 10px 12px;
+		background: #161618;
+	}
+	.prod-name {
+		font-size: 13px;
+		color: #eaeaea;
+		font-weight: 500;
+		margin-bottom: 5px;
+	}
+	.prod-variant {
+		display: flex;
+		gap: 8px;
+		font-size: 12px;
+		color: var(--p-muted);
+		line-height: 1.7;
+	}
+	.prod-variant .tier {
+		color: #7db6ff;
 	}
 	.prompt-wrap {
 		position: relative;
