@@ -42,7 +42,7 @@ export default {
 				scan: {
 					text: '打开手机扫一扫，快速登录/注册',
 				},
-				signInText: '欢迎回来！',
+				signInText: '港险 AI 智慧系统',
 				validation: {
 					usernameRequired: '请填写账号',
 					passwordRequired: '请填写密码',

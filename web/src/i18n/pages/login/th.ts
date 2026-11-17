@@ -42,7 +42,7 @@ export default {
 				scan: {
 					text: 'เปิดโทรศัพท์สแกนเพื่อเข้าสู่ระบบ/สมัครใช้งานอย่างรวดเร็ว',
 				},
-				signInText: 'ยินดีต้อนรับกลับ!',
+				signInText: '港险 AI 智慧系统',
 				validation: {
 					usernameRequired: 'กรุณากรอกบัญชี',
 					passwordRequired: 'กรุณากรอกรหัสผ่าน',

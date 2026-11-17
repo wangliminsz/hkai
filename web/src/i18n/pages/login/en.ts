@@ -3,7 +3,7 @@ export default {
 	message: {
 		pages: {
 			login: {
-				signInText: 'Welcome back!',
+				signInText: '港险 AI 智慧系统',
 				brand: {
 					title: 'proNotify',
 					tagline: 'Smarter client connections',
