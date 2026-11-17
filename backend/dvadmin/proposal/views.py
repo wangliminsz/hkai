@@ -7,6 +7,7 @@ from django.core import signing
 from django.http import FileResponse, HttpResponse
 from django.utils.translation import gettext_lazy as _
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -233,6 +234,7 @@ def _download_user(request, job_id: int):
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def job_pdf(request, job_id: int):
     # Direct GET links (for browser/Muse download interception) carry a short-lived
     # signed token because <a href> cannot attach the JWT Authorization header.
