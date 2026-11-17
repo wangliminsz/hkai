@@ -1,0 +1,155 @@
+{
+  "product": "GF",
+  "name": "环宇盈活储蓄保险计划 (AIA)",
+  "signature": {
+    "keywords": [
+      "環宇盈活",
+      "环宇盈活",
+      "友邦"
+    ]
+  },
+  "first_page": {
+    "extractors": [
+      {
+        "fields": [
+          "name",
+          "gender"
+        ],
+        "regex": "受保人姓名[:：]\\s*(.+?)\\s+年齡[:：]\\s*\\d+\\s+性別[:：]\\s*(\\S+)"
+      },
+      {
+        "fields": [
+          "age",
+          "smoking"
+        ],
+        "regex": "年齡[:：]\\s*(\\d+)\\s+性別[:：]\\s*\\S+\\s*(\\S+)"
+      },
+      {
+        "fields": [
+          "smoking"
+        ],
+        "regex": "非吸煙者|吸煙者"
+      },
+      {
+        "fields": [
+          "currency"
+        ],
+        "regex": "保單貨幣[:：]\\s*(\\S+)"
+      },
+      {
+        "fields": [
+          "annual_premium"
+        ],
+        "regex": "投保時年繳總保費[:：]\\s*([\\d,\\.]+)"
+      },
+      {
+        "fields": [
+          "plan_name"
+        ],
+        "regex": "計劃[:：]\\s*(.+?)\\s*[（(]\\d+ 年繳費[）)]"
+      },
+      {
+        "fields": [
+          "premium_term"
+        ],
+        "regex": "[（(](\\d+) 年繳費[）)]"
+      },
+      {
+        "fields": [
+          "sum_insured"
+        ],
+        "regex": "\\|\\s*環宇盈活儲蓄保險計劃[^|]*\\|\\s*[\\d,\\.]+\\s*\\|\\s*([\\d,\\.]+)"
+      }
+    ],
+    "plan_row": null
+  },
+  "tables": {
+    "years": {
+      "page_hints": [
+        "說明摘要"
+      ],
+      "cash": {
+        "cols": {
+          "year": 0,
+          "premiums": 1,
+          "guaranteed": 2,
+          "state_bonus": 3,
+          "terminal": 4,
+          "total": 5
+        }
+      },
+      "death": {
+        "cols": {
+          "year": 0,
+          "premiums": 1,
+          "guaranteed": 6,
+          "state_bonus": 7,
+          "terminal": 8,
+          "total": 9
+        }
+      }
+    },
+    "scenario": {
+      "page_hints": [
+        "不同投資回報下的說明"
+      ],
+      "cash": {
+        "title_kind": "退保發還金額",
+        "cols": {
+          "year": 0,
+          "premiums": 1,
+          "guaranteed": 2,
+          "worst_state_bonus": 3,
+          "worst_terminal": 4,
+          "worst_total": 5,
+          "best_state_bonus": 6,
+          "best_terminal": 7,
+          "best_total": 8
+        }
+      },
+      "death": {
+        "title_kind": "退保發還金額",
+        "cols": {
+          "year": 0,
+          "premiums": 1,
+          "guaranteed": 2,
+          "worst_state_bonus": 3,
+          "worst_terminal": 4,
+          "worst_total": 5,
+          "best_state_bonus": 6,
+          "best_terminal": 7,
+          "best_total": 8
+        }
+      }
+    }
+  },
+  "key_periods": {
+    "cash": [
+      "10",
+      "20",
+      "25",
+      "30",
+      "65歲",
+      "75歲",
+      "80歲",
+      "100歲"
+    ],
+    "death": [
+      "20",
+      "65歲",
+      "70歲",
+      "75歲",
+      "80歲",
+      "90歲",
+      "100歲"
+    ],
+    "scenario": [
+      "10",
+      "20",
+      "25",
+      "30",
+      "80歲",
+      "100歲"
+    ]
+  }
+}

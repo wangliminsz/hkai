@@ -1,0 +1,554 @@
+{
+  "product": "ci-advanced",
+  "name": "万通危疾加护保 (优越版)",
+  "meta": {
+    "title": "危疾加护保",
+    "width": 1080,
+    "height": 1440,
+    "footer": "仅供说明参考 · 一切以保单条款为准",
+    "theme": "yf-cream",
+    "brand": "YF Life 万通保险",
+    "company": "YF"
+  },
+  "cover": {
+    "image": "assets/ci-standard-hero.jpg",
+    "overridable": [
+      "image"
+    ]
+  },
+  "copy": {
+    "label": "危疾保障",
+    "plan_short": "危疾加护保",
+    "variant": "优越版",
+    "plan_default": "万通危疾加护保 (优越版)",
+    "english_name": "Critical Illness Protection Plan",
+    "audience": "中产 · 白领 · 金领",
+    "audience_long": "中产家庭、白领与金领阶层——给家人一份安心",
+    "hook": "一次诊断 · 一份从容",
+    "tagline": "危疾保障 · 悉心守护",
+    "product_positioning": "多重赔付重大疾病保障",
+    "positioning_points": [
+      "68 种重疾保障，50 种早期重疾保障，31 种原位癌/初期癌症保障；分级赔付",
+      "支持多重赔付：包括癌症、心脏病、中风、脑退化、柏金逊病；最高可赔付基本保额 600%",
+      "多项稀缺增值权益：保障额无缝还原保障、危疾现金额外津贴、中医癌症舒缓保障、临床试验药物资助、生殖细胞冷冻保障；",
+      "保单首 10 年重疾额外赔付：30 岁以下 80%； 30 岁及以上 50%  (推广优惠)  ",
+      "保障至 100 岁，保证现金价值 + 非保证终期红利，兼顾保障与储蓄，保单长期复利增长；"
+    ]
+  },
+  "cards": [
+    {
+      "role": "hero",
+      "kicker": "封面 · Cover",
+      "overridable": [
+        "title",
+        "subtitle",
+        "salutation",
+        "hero_image"
+      ],
+      "bound_data": {
+        "eyebrow": "{copy.tagline}",
+        "title": "{info.plan_name}",
+        "title_zh_short": "{copy.plan_short}(优越版)",
+        "english_name": "{copy.english_name}",
+        "hook": "{copy.hook}",
+        "salutation": "{info.salutation}",
+        "audience": "{copy.audience}",
+        "age": "{info.age}",
+        "product_label": "{copy.label}",
+        "variant": "{copy.variant}",
+        "stats": [
+          {
+            "label": "保额 / 身故保障",
+            "value": "{info.sum_insured_fmt}",
+            "unit": "{info.currency}"
+          },
+          {
+            "label": "年缴保费",
+            "value": "{info.annual_premium_fmt}",
+            "unit": "{info.currency}/年"
+          },
+          {
+            "label": "缴费年期",
+            "value": "{info.premium_term}",
+            "unit": "年"
+          }
+        ],
+        "hero_image": "assets/ci-advanced-hero.jpg"
+      }
+    },
+    {
+      "role": "summary",
+      "kicker": "摘要 · Summary",
+      "overridable": [
+        "subtitle"
+      ],
+      "bound_data": {
+        "eyebrow": "保障摘要",
+        "title": "一份保单 · 看懂核心",
+        "subtitle": "受保人 {info.name} · {copy.plan_short}({copy.variant})",
+        "items": [
+          [
+            "受保人",
+            "{info.name}"
+          ],
+          [
+            "性别 / 年龄",
+            "{info.gender} / {info.age} 岁"
+          ],
+          [
+            "吸烟状况",
+            "{info.smoking}"
+          ],
+          [
+            "居住国家组别",
+            "{info.country_group}"
+          ],
+          [
+            "保单货币",
+            "{info.currency}"
+          ],
+          [
+            "保障额",
+            "{info.sum_insured_fmt} {info.currency}"
+          ],
+          [
+            "年保费",
+            "{info.annual_premium_fmt} {info.currency} / 年"
+          ],
+          [
+            "缴费年期",
+            "{info.premium_term} 年"
+          ],
+          [
+            "保障年期",
+            "{info.policy_term_display}"
+          ],
+          [
+            "适用人群",
+            "{copy.audience}"
+          ]
+        ]
+      }
+    },
+    {
+      "role": "numbers",
+      "kicker": "数据 · Key Numbers",
+      "overridable": [
+        "subtitle"
+      ],
+      "bound_data": {
+        "eyebrow": "4 个数字 · 读懂保单",
+        "title": "一眼读懂的关键",
+        "subtitle": "{info.age}岁 · {info.gender} · {info.smoking}",
+        "stats": [
+          {
+            "label": "保额",
+            "value": "{info.sum_insured_fmt}",
+            "unit": "{info.currency}"
+          },
+          {
+            "label": "年缴保费",
+            "value": "{info.annual_premium_fmt}",
+            "unit": "{info.currency}/年"
+          },
+          {
+            "label": "缴费年期",
+            "value": "{info.premium_term}",
+            "unit": "年"
+          },
+          {
+            "label": "保障年期",
+            "value": "{info.policy_term_display}",
+            "unit": ""
+          }
+        ]
+      },
+      "styles": [
+        "llm"
+      ]
+    },
+    {
+      "role": "coverage",
+      "kicker": "保障 · Coverage",
+      "overridable": [
+        "subtitle",
+        "items"
+      ],
+      "bound_data": {
+        "eyebrow": "保障重点",
+        "title": "重大疾病保障",
+        "subtitle": "",
+        "headline": "{info.sum_insured_fmt}",
+        "headline_currency": "{info.currency}",
+        "headline_label": "起保即享的保障额",
+        "items": [
+          {
+            "k": "68 种主要严重疾病",
+            "v": "{info.sum_insured_fmt} {info.currency} ",
+            "note": "基本保额 {info.currency} (100%)"
+          },
+          {
+            "k": "推广优惠",
+            "v": "首 10 年额外 {calc: (0.8 if age < 30 else 0.5) * 100}%",
+            "note": "首 10 年额外保障"
+          },
+          {
+            "k": "早期危疾、原位癌或初期癌症",
+            "v": "基本保额的 30%；少数 10% / 50%",
+            "note": "50 种早期疾病 / 31 种原位癌或初期癌症"
+          },
+          {
+            "k": "33 种儿童早期重疾 (小朋友)",
+            "v": "{calc: sum_insured * 0.3} {info.currency}",
+            "note": "保障到 25 岁"
+          },
+          {
+            "k": "保障年期",
+            "v": "{info.policy_term_display}",
+            "note": "终身保障"
+          }
+        ]
+      },
+      "styles": [
+        "llm"
+      ]
+    },
+    {
+      "role": "multi",
+      "overridable": [
+        "subtitle",
+        "examples"
+      ],
+      "kicker": "赔付 · Multi-claim",
+      "bound_data": {
+        "eyebrow": "多次重疾赔付",
+        "title": "不止一次 · 多重守护",
+        "subtitle": "多重赔付：包括癌症、心脏病、中风、脑退化、柏金逊病；最高可赔付基本保额 600%",
+        "examples": [
+          {
+            "label": "首次主要危疾",
+            "amount": "{calc: sum_insured} {info.currency}",
+            "note": "100% 基本保额",
+            "year": "首次"
+          },
+          {
+            "label": "保障额无缝还原",
+            "amount": "{calc: sum_insured} {info.currency}",
+            "note": "100% 基本保额",
+            "year": "如首次非 5 种特定重疾"
+          },
+          {
+            "label": "癌症、心脏病",
+            "amount": "{calc: sum_insured} {info.currency}",
+            "note": "100% 基本保额",
+            "year": "第二次、第三次"
+          },
+          {
+            "label": "中风、脑退化/柏金逊病",
+            "amount": "{calc: sum_insured} {info.currency}",
+            "note": "100% 基本保额",
+            "year": "第四次、第五次"
+          }
+        ]
+      },
+      "styles": [
+        "llm"
+      ]
+    },
+    {
+      "role": "points",
+      "styles": [
+        "llm"
+      ],
+      "bound_data": {
+        "eyebrow": "多重危疾赔付-间隔规则",
+        "title": "多重危疾赔付-间隔规则",
+        "subtitle": "不同情况，间隔与赔付比例",
+        "items": [
+          {
+            "title": "非癌 ⇋ 任意疾病，1 年，100%",
+            "body": "间隔 1 年，足额赔付 100%"
+          },
+          {
+            "title": "癌症 ⇋ 非癌，1 年，100%",
+            "body": "间隔 1 年，足额赔付 100%"
+          },
+          {
+            "title": "癌症 → 癌症，3 年，100% 或者 1 年，50%",
+            "body": "间隔 3 年足额 100% / 或可选间隔 1 年 50%"
+          }
+        ]
+      }
+    },
+    {
+      "role": "chart",
+      "kicker": "图表 · Cash Value",
+      "overridable": [
+        "subtitle"
+      ],
+      "generated": {
+        "kind": "bar_chart",
+        "data_keys": [
+          "bars"
+        ]
+      },
+      "bound_data": {
+        "eyebrow": "时间 × 价值",
+        "title": "5 个节点 · 看懂增长",
+        "subtitle": "现金价值随保单年度稳步增长"
+      },
+      "styles": [
+        "llm"
+      ]
+    },
+    {
+      "role": "irr",
+      "kicker": "收益率 · IRR",
+      "overridable": [
+        "subtitle",
+        "narrative"
+      ],
+      "generated": {
+        "kind": "irr_pills",
+        "data_keys": [
+          "pills"
+        ]
+      },
+      "bound_data": {
+        "eyebrow": "长期收益率",
+        "title": "时间替你 · 累积复利",
+        "subtitle": "保单长线持有，复利效应显著",
+        "narrative": "有事保障，无事存钱——长期复合收益率约 5%，让时间成为您最忠实的伙伴。"
+      },
+      "styles": [
+        "llm"
+      ]
+    },
+    {
+      "role": "reasons",
+      "kicker": "价值 · Reasons",
+      "overridable": [
+        "subtitle",
+        "reasons"
+      ],
+      "bound_data": {
+        "eyebrow": "为什么选这份保单",
+        "title": "5 个理由 · 说清价值",
+        "subtitle": "不是「保单有什么」，是「为什么选它」",
+        "reasons": [
+          {
+            "tag": "01",
+            "title": "68 种主要危疾 {calc: sum_insured * (1.8 if age < 30 else 1.5)} / {calc: sum_insured * 1.0} {info.currency}",
+            "body": "首 10 年享 {calc: (1.8 if age < 30 else 1.5) * 100}% 保障（推广优惠）"
+          },
+          {
+            "tag": "02",
+            "title": "早期赔付 30% / 10%  / 50%",
+            "body": "涵盖 50 种早期疾病 / 31 种原位癌或初期癌症"
+          },
+          {
+            "tag": "03",
+            "title": "保障到 25 岁，儿童早期重疾 30%",
+            "body": "33 种儿童早期重疾"
+          },
+          {
+            "tag": "04",
+            "title": "多重赔付· 全面覆盖",
+            "body": "最高可赔付基本保额 600%"
+          },
+          {
+            "tag": "05",
+            "title": "现金价值 · 不断累积",
+            "body": "保证现金价值 + 非保证终期红利，兼顾保障与长线回报"
+          }
+        ]
+      },
+      "styles": [
+        "llm"
+      ]
+    },
+    {
+      "role": "letter",
+      "kicker": "信笺 · Letter",
+      "llm": {
+        "slot": "llm_letter"
+      },
+      "overridable": [
+        "body"
+      ],
+      "bound_data": {
+        "eyebrow": "致受保人",
+        "title": "致受保人的一封信",
+        "subtitle": "写给 {info.name} 的一段话",
+        "pullquote": "一份保障，是一句无需开口的承诺。",
+        "salutation": "{info.salutation}"
+      }
+    },
+    {
+      "role": "essay",
+      "kicker": "随笔 · Essay",
+      "llm": {
+        "slot": "llm_essay"
+      },
+      "overridable": [
+        "body"
+      ],
+      "bound_data": {
+        "eyebrow": "保障与人生阶段",
+        "title": "{info.age}岁的保障 · 此生的安心",
+        "subtitle": "保费可控 / 年期长 / 复利积累",
+        "pullquote": "把不确定性留在门外，把确定性交给保单。"
+      }
+    },
+    {
+      "role": "company",
+      "kicker": "公司 · Company",
+      "overridable": [
+        "subtitle",
+        "items"
+      ],
+      "bound_data": {
+        "eyebrow": "承保公司",
+        "title": "万通保险 · 实力背书",
+        "subtitle": "YF Life · 国际保险集团",
+        "items": [
+          {
+            "tag": "01",
+            "title": "港交所上市 · 实力背书",
+            "body": "云锋金融集团成员，背后是马云旗下金融生态与多家国际机构"
+          },
+          {
+            "tag": "02",
+            "title": "美国万通人寿 · 战略股东",
+            "body": "全美 5 大互惠寿险公司之一，170+ 年寿险经验"
+          },
+          {
+            "tag": "03",
+            "title": "惠誉 A- 评级 · 财务稳健",
+            "body": "国际三大评级机构之一给予「A-」（强劲）保险财务实力评级"
+          },
+          {
+            "tag": "04",
+            "title": "分红比例 ≥ 90%",
+            "body": "分红保单目标：将不少于 90% 可分配盈余分配给保单持有人"
+          }
+        ]
+      }
+    },
+    {
+      "role": "cashvalue_table",
+      "styles": [
+        "classic",
+        "guizang"
+      ],
+      "kicker": "数据 · Cash Value",
+      "overridable": [
+        "subtitle"
+      ],
+      "generated": {
+        "kind": "cashvalue_table",
+        "data_keys": [
+          "columns",
+          "rows",
+          "note"
+        ]
+      },
+      "bound_data": {
+        "eyebrow": "现金价值演示",
+        "title": "现金价值（现时假设）",
+        "subtitle": "单位：{info.currency}"
+      }
+    },
+    {
+      "role": "scenario_table",
+      "styles": [
+        "classic",
+        "guizang"
+      ],
+      "kicker": "情景 · Scenario",
+      "overridable": [
+        "subtitle"
+      ],
+      "generated": {
+        "kind": "scenario_table",
+        "data_keys": [
+          "columns",
+          "rows",
+          "note"
+        ]
+      },
+      "bound_data": {
+        "eyebrow": "不同投资回报情景",
+        "title": "投资回报情景对比（现金价值）",
+        "subtitle": "现金价值总额 · 单位：{info.currency}",
+        "note": "悲观/乐观基于现时假设投资回报每年 ±约1.7%；不代表实际回报上下限"
+      }
+    },
+    {
+      "role": "death_table",
+      "styles": [
+        "classic",
+        "guizang"
+      ],
+      "kicker": "数据 · Death Benefit",
+      "overridable": [
+        "subtitle"
+      ],
+      "generated": {
+        "kind": "death_table",
+        "data_keys": [
+          "columns",
+          "rows",
+          "note"
+        ]
+      },
+      "bound_data": {
+        "eyebrow": "身故保障演示",
+        "title": "身故保障（现时假设）",
+        "subtitle": "单位：{info.currency}"
+      }
+    },
+    {
+      "role": "features",
+      "styles": [
+        "classic",
+        "guizang"
+      ],
+      "kicker": "特点 · Features",
+      "bound_data": {
+        "eyebrow": "产品特点",
+        "title": "为什么选它",
+        "subtitle": "万通危疾加护保 (标准版)",
+        "items": [
+          "严重疾病保障涵盖早期疾病、原位癌及主要严重疾病",
+          "主要严重疾病保障：首10个保单年度享额外35%保障额（推广优惠）",
+          "临床试验药物保障：癌症确诊后3年内资助临床试验药物费用",
+          "保证现金价值 + 非保证终期红利，第5个保单周年起公布",
+          "保证将来可保权益：符合条件可购买全新严重疾病保单",
+          "身故赔偿取(保障额+终期红利)与现金价值的较高者"
+        ]
+      }
+    },
+    {
+      "role": "risks",
+      "styles": [
+        "classic",
+        "guizang"
+      ],
+      "kicker": "提示 · Notice",
+      "bound_data": {
+        "eyebrow": "重要提示",
+        "title": "投保前必读",
+        "subtitle": "请务必理解以下风险",
+        "items": [
+          "终期红利非保证，某些情况下可能为零",
+          "严重疾病保障总额达100%基本保障额后，保单即终止",
+          "临床试验药物保障需符合特定资格条件（如癌症治疗已失效）",
+          "推广优惠额外保障不设现金价值，第10个保单周年日终止",
+          "保费征费由保监局收取，征费率与上限可能逐年变动",
+          "冷静期为21个历日；一切以保单条款为准"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "product": "ci-lite",
+  "name": "万通危疾加护保 (轻悦版)",
+  "signature": { "keywords": ["輕悅", "轻悦"] },
+  "first_page": {
+    "extractors": [
+      { "fields": ["name", "gender"], "regex": "受保人姓名:\\s*(.+?)\\s+性別:\\s*(\\S+)" },
+      { "fields": ["age", "smoking"], "regex": "年齡:\\s*(\\d+)\\s*吸煙狀況:\\s*(.+)" },
+      { "fields": ["currency"], "regex": "保單貨幣:?\\s+(\\S+)" },
+      { "fields": ["plan_name"], "regex": "基本計劃\\s*[:：]\\s*(.+?)\\s+保障及利益摘要" },
+      { "fields": ["annual_premium"], "regex": "基本計劃的每年保費\\s*([\\d,\\.]+)" },
+      { "fields": ["premium_total"], "regex": "基本計劃的保費總額\\s*([\\d,\\.]+)" },
+      { "fields": ["sum_insured"], "regex": "基本保障額\\s*([\\d,\\.]+)" },
+      { "fields": ["premium_term"], "regex": "繳付保費年期\\s*由\\d+歲至\\d+歲\\((\\d+)年\\)" },
+      { "fields": ["policy_term"], "regex": "保障年期\\s*至(\\d+)歲" }
+    ],
+    "plan_row": null
+  },
+  "tables": {
+    "years": {
+      "page_hints": ["附加說明文件", "現時假設基礎"],
+      "fallback_hints": ["說明摘要", "現時假設基礎"],
+      "exclude_keywords": ["推廣優惠"],
+      "cash": { "cols": { "year": 0, "premiums": 1, "guaranteed": 2, "terminal": 3, "total": 4 } },
+      "death": { "cols": { "year": 0, "premiums": 1, "guaranteed": 5, "terminal": 6, "total": 7 } }
+    },
+    "scenario": {
+      "page_hints": ["不同投資回報下的說明"],
+      "cash": {
+        "title_kind": "現金價值",
+        "cols": { "year": 0, "premiums": 1, "guaranteed": 2, "worst_terminal": 3, "worst_total": 4, "best_terminal": 5, "best_total": 6 }
+      },
+      "death": {
+        "title_kind": "身故保障",
+        "cols": { "year": 0, "premiums": 1, "guaranteed": 2, "worst_terminal": 3, "worst_total": 4, "best_terminal": 5, "best_total": 6 }
+      }
+    }
+  },
+  "key_periods": {
+    "cash": ["10", "20", "25", "30", "65 歲", "75 歲", "80 歲", "100 歲"],
+    "death": ["20", "65 歲", "70 歲", "75 歲", "80 歲", "90 歲", "100 歲"],
+    "scenario": ["10", "20", "25", "30", "80 歲", "100 歲"]
+  }
+}

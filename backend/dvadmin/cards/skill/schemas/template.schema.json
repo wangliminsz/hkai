@@ -1,0 +1,191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "insurance-proposal-cards/template.schema.json",
+  "title": "Product card template",
+  "description": "Declarative card structure for ONE product, style-agnostic. Lives at products/<product_id>/template.json. Cards are declared by semantic role; each renderer maps role → its own visual layout. This file drives /detect (frontend override form) AND the generic builder.",
+  "type": "object",
+  "required": [
+    "product",
+    "name",
+    "meta",
+    "cover",
+    "cards"
+  ],
+  "properties": {
+    "product": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "title",
+        "width",
+        "height",
+        "footer"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "footer": {
+          "type": "string"
+        },
+        "brand": {
+          "type": "string",
+          "description": "页脚品牌名（如 YF Life 万通保险 / AIA 友邦保险）。缺省用渲染器默认值。"
+        },
+        "company": {
+          "type": "string",
+          "description": "保险公司代号（对应 CardCompany.code，如 YF / AIA）"
+        },
+        "theme": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "cover": {
+      "type": "object",
+      "description": "Default cover asset + per-style defaults. Per-proposal user uploads override 'image'.",
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Path (relative to SKILL_ROOT) of the default cover/hero image, if any."
+        },
+        "overridable": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Which cover fields the user may override via the frontend, e.g. ['image']."
+        }
+      },
+      "additionalProperties": false
+    },
+    "copy": {
+      "type": "object",
+      "description": "Optional per-product brand copy. Any string keys; referenced by cards via {copy.key} placeholders or bound directly by the builder. Free-form on purpose, but the canonical set is: label, plan_short, variant, english_name, audience, audience_long, hook, tagline, cover_eyebrow, plan_default, cover_subtitle_suffix, capital_label.",
+      "additionalProperties": true
+    },
+    "cards": {
+      "type": "array",
+      "description": "Order matters; the Nth entry becomes card idx N. Each card is a role + style-agnostic content/binds.",
+      "items": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "Semantic role in a controlled vocabulary: hero|cover|summary|numbers|coverage|multi|chart|irr|reasons|letter|essay|company|features|risks|table|list|note|scenario|death|ci-list|image|fulltext"
+          },
+          "title": {
+            "type": "string",
+            "description": "Card title; supports {plan_name} / {copy.x} / {info.x} placeholders."
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Card subtitle; placeholder-extended too."
+          },
+          "kicker": {
+            "type": "string"
+          },
+          "accent": {
+            "type": "string"
+          },
+          "overridable": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Which slots the frontend lets the user override (e.g. ['subtitle', 'body'])."
+          },
+          "styles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Which render styles include this card (llm/classic/guizang). Omit = all styles."
+          },
+          "bound_data": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional extra static content the builder splices into this card verbatim (e.g. {'items': [...], 'stats': [...], 'examples': [...]}). Values may contain {placeholders}."
+          },
+          "generated": {
+            "type": "object",
+            "description": "Data the builder computes from normalized tables for this card.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "bar_chart",
+                  "irr_pills",
+                  "cashvalue_table",
+                  "death_table",
+                  "scenario_table",
+                  "table",
+                  "list",
+                  "reasons",
+                  "summary_items",
+                  "fulltext"
+                ]
+              },
+              "data_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "llm": {
+            "type": "object",
+            "description": "If present, this card's body is generated by an LLM slot.",
+            "properties": {
+              "slot": {
+                "type": "string",
+                "enum": [
+                  "llm_letter",
+                  "llm_essay",
+                  "guizang_letter",
+                  "guizang_essay",
+                  "ci_intro"
+                ]
+              },
+              "max_tokens": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "omit_when": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Products for which this card is skipped (e.g. multi-card omitted for pwl)."
+          },
+          "variants": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional per-sub-variant bound_data overrides, keyed by variant id (parser.json variant.rules[].key). Deep-merged over base bound_data when the detected variant matches, e.g. {'standard': {...}, 'advanced': {...}}"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

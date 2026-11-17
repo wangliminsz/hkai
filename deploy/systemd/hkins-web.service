@@ -1,0 +1,27 @@
+[Unit]
+Description=hkins Django (gunicorn)
+Documentation=file://@APP_DIR@/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@APP_USER@
+Group=@APP_USER@
+WorkingDirectory=@BACKEND@
+Environment=DJANGO_SETTINGS_MODULE=application.settings
+Environment=PYTHONUNBUFFERED=1
+# Keep uploads/report HTML writable by the same user as the workers.
+ExecStart=@VENV@/bin/gunicorn application.wsgi:application \
+    --bind 127.0.0.1:@WEB_PORT@ \
+    --workers 3 \
+    --timeout 180 \
+    --access-logfile - \
+    --error-logfile -
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

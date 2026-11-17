@@ -1,0 +1,212 @@
+# Domain rules for YF Life proposal system.
+#
+# IMPORTANT: These strings are FALLBACK text only. The locator layer prefers
+# reading the real rendered options from the page and matching on stable
+# tokens (e.g. "PWL" + "20"). Rules here are used when option text cannot be
+# read, or to provide canonical labels. Editing UI copy alone should not
+# require code changes.
+
+# Product categories shown on page 2 (基本計劃). Exact display text from portal.
+categories:
+  傳統壽險: "傳統壽險"
+  儲蓄及年金: "儲蓄及年金"
+  嚴重疾病: "嚴重疾病"
+  醫療: "醫療"
+  萬用壽險: "萬用壽險"
+  定期保障: "定期保障"
+  投資相連: "投資相連"
+
+products:
+  PWL:
+    name: 尚裕終身壽險
+    category: 傳統壽險
+    min_amount: 1000000        # 门户校验：保额不得低于此值（美元）
+    plans:
+      5: "PWL05 - 尚裕終身壽險 (5年繳付)"
+      10: "PWL10 - 尚裕終身壽險 (10年繳付)"
+      20: "PWL20 - 尚裕終身壽險 (20年繳付)"
+      lump: "PWL - 尚裕終身壽險 (一次過繳付保費)"
+
+  # 尚悅人生壽險計劃 (LifeDeluxe, LD)
+  # 门户：计划下拉同时列出 6 项 -> 特選(LD1P*) + 特級(LD2P*)
+  # 产品册 P15 事实：
+  #   计划版本: 特選計劃 (Plan Smart) / 特級計劃 (Plan Wise)
+  #   供款年期: 5 / 10 / 20 年
+  #   最低保障额: 投保年龄 <45 -> US$30,000 ; >=45 -> US$15,000
+  #   最低年保费: US$200 ; 投保年龄 18-75 ; 保障年期 终身
+  LD:
+    name: 尚悅人生壽險計劃
+    category: 傳統壽險
+    # min_amount 支持按投保年龄分段：键为年龄阈值（含），"_" 为兜底
+    min_amount:
+      45: 30000      # 年龄 < 45 -> 30000
+      _: 15000       # 年龄 >= 45 -> 15000
+    tiers:
+      特選計劃: "特選計劃"     # 别名 LD1
+      特級計劃: "特級計劃"     # 别名 LD2
+    tier_aliases:
+      LD1: 特選計劃
+      ld1: 特選計劃
+      特選: 特選計劃
+      特选: 特選計劃
+      特選計劃: 特選計劃
+      特选计划: 特選計劃
+      plan smart: 特選計劃
+      smart: 特選計劃
+      LD2: 特級計劃
+      ld2: 特級計劃
+      特級: 特級計劃
+      特级: 特級計劃
+      特級計劃: 特級計劃
+      特级计划: 特級計劃
+      plan wise: 特級計劃
+      wise: 特級計劃
+    plans:
+      特選計劃:
+        5: "LD1P5 - 尚悅人生壽險計劃 (5年繳付) - 特選計劃"
+        10: "LD1P10 - 尚悅人生壽險計劃 (10年繳付) - 特選計劃"
+        20: "LD1P20 - 尚悅人生壽險計劃 (20年繳付) - 特選計劃"
+      特級計劃:
+        5: "LD2P5 - 尚悅人生壽險計劃 (5年繳付) - 特級計劃"
+        10: "LD2P10 - 尚悅人生壽險計劃 (10年繳付) - 特級計劃"
+        20: "LD2P20 - 尚悅人生壽險計劃 (20年繳付) - 特級計劃"
+
+  # ── 萬通危疾加護保 (YF PrimeHealth Pro) — 3 個「獨立產品」（非 tier）──
+  # 產品册事實：最低基本保障額 US$15,000；最高 US$1,500,000；貨幣 US$/HK$；保障至100歲
+  # 入口：嚴重疾病 分類下，產品下拉有 3 個獨立項 PHPS / PHP / PHPE
+  PHPS:
+    name: 萬通危疾加護保 (優越版)
+    category: 嚴重疾病
+    min_amount: 15000
+    max_amount: 1500000
+    plans:
+      10: "PHPS10 - 萬通危疾加護保 (優越版) (10年繳付)"
+      15: "PHPS15 - 萬通危疾加護保 (優越版) (15年繳付)"
+      20: "PHPS20 - 萬通危疾加護保 (優越版) (20年繳付)"
+      25: "PHPS25 - 萬通危疾加護保 (優越版) (25年繳付)"
+  PHP:
+    name: 萬通危疾加護保(標準版)
+    category: 嚴重疾病
+    min_amount: 15000
+    max_amount: 1500000
+    plans:
+      10: "PHP10 - 萬通危疾加護保 (標準版) (10年繳付)"
+      15: "PHP15 - 萬通危疾加護保 (標準版) (15年繳付)"
+      20: "PHP20 - 萬通危疾加護保 (標準版) (20年繳付)"
+      25: "PHP25 - 萬通危疾加護保 (標準版) (25年繳付)"
+  PHPE:
+    name: 萬通危疾加護保險計劃（輕悅版）
+    category: 嚴重疾病
+    min_amount: 15000
+    max_amount: 1500000
+    plans:
+      10: "PHPE10 - 萬通危疾加護保險計劃（輕悅版）(10年繳付)"
+      15: "PHPE15 - 萬通危疾加護保險計劃（輕悅版）(15年繳付)"
+      20: "PHPE20 - 萬通危疾加護保險計劃（輕悅版）(20年繳付)"
+
+  # ── 富饒萬家儲蓄保險計劃 (Beyond Infinity Savings, BIS) ──
+  # ★ 儲蓄險：第2頁的金額欄是「每年基本保費」（element id 仍是 sumInsured）
+  #   所以門戶上它叫 每年基本保費，不是 保障金額 -> 用 amount_field 標明
+  # ★ 第4頁「萬用壽險更改」要填「現金提取」（withdrawal: true）
+  #   產品册：最低年保費 US$1,800（5/10年繳付）、US$5,000（2年繳付）
+  BIS:
+    name: 富饒萬家儲蓄保險計劃
+    category: 儲蓄及年金
+    amount_field: 每年基本保費
+    min_amount: 1800
+    min_amount_by_plan:
+      2: 5000          # 2年繳付：每年基本保費 >= 5000
+    withdrawal: true   # 支援第4頁現金提取
+    plans:
+      2:  "BISP2 - 富饒萬家儲蓄保險計劃 (2年繳付)"
+      5:  "BISP5 - 富饒萬家儲蓄保險計劃 (5年繳付)"
+      10: "BISP10 - 富饒萬家儲蓄保險計劃 (10年繳付)"
+
+# Matching tokens used by the fuzzy matcher (L2). Keeps the logic independent
+# of full display text.
+#
+# For products WITH tiers, the structure is: plan_tokens[CODE][TIER][PERIOD].
+# Tokens must be UNIQUE enough to avoid ambiguity across tiers
+# (e.g. LD1P20 vs LD2P20 -> use "LD1"/"LD2" prefixes, not just "LD").
+plan_tokens:
+  PWL:
+    5:  ["PWL", "5"]
+    10: ["PWL", "10"]
+    20: ["PWL", "20"]
+    lump: ["PWL", "一次"]
+  LD:
+    特選計劃:
+      5:  ["LD1P5"]
+      10: ["LD1P10"]
+      20: ["LD1P20"]
+    特級計劃:
+      5:  ["LD2P5"]
+      10: ["LD2P10"]
+      20: ["LD2P20"]
+  PHPS:
+    10: ["PHPS10"]
+    15: ["PHPS15"]
+    20: ["PHPS20"]
+    25: ["PHPS25"]
+  PHP:
+    10: ["PHP10"]
+    15: ["PHP15"]
+    20: ["PHP20"]
+    25: ["PHP25"]
+  PHPE:
+    10: ["PHPE10"]
+    15: ["PHPE15"]
+    20: ["PHPE20"]
+  BIS:
+    2:  ["BISP2"]
+    5:  ["BISP5"]
+    10: ["BISP10"]
+
+# ── Page-flow control ──────────────────────────────────────────────
+# The wizard's step 3 (附加保障 / 醫療保險) is auto-skipped for products with
+# no riders (like PWL). For other products set requires=True and it will be
+# filled/traversed. Add per-product overrides under `products.<CODE>.pages`.
+flow:
+  additional_cover:      # step 3
+    requires: false      # false = 该步会自动跳过（PWL）；true = 需要处理
+    page_title: "附加保障"
+  universal_life:        # step 4 (萬用壽險更改)
+    requires: false      # 选填，直接下一步
+    page_title: "萬用壽險更改"
+
+# ── Page-2 field availability (per product) ─────────────────────────
+# Which 計劃詳情 fields actually exist for a product. LD does NOT show 級別
+# (its pricing has no 居住國家 level), so select_level is skipped for LD.
+fields:
+  default:
+    level: true          # 是否显示/需要选『級別』
+  products:
+    LD:
+      level: false       # LD 无級別字段
+    PHPS:
+      level: false       # 危疾產品無級別字段
+    PHP:
+      level: false
+    PHPE:
+      level: false
+    BIS:
+      level: false       # 儲蓄險無級別字段（門戶上該欄 disabled）
+
+levels:
+  大陆: "居住國家A - 標準"
+  香港: "居住國家A - 特級優越"
+
+# Resident region -> level key mapping
+region_to_level:
+  中国大陆: 大陆
+  大陆: 大陆
+  香港: 香港
+
+# Gender / smoking display tokens (page 1)
+gender:
+  Male: "男"
+  Female: "女"
+
+smoke:
+  nonsmoker: "非吸煙者"
+  smoker: "吸煙者"

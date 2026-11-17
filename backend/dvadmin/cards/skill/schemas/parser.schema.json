@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "insurance-proposal-cards/parser.schema.json",
+  "title": "Product parser definition",
+  "description": "Declarative rules for extracting ONE insurance product's PDF/markdown into normalized proposal data. Lives at products/<product_id>/parser.json. Keep column-index knowledge here, not in code.",
+  "type": "object",
+  "required": ["product", "name", "signature", "tables", "key_periods"],
+  "properties": {
+    "product": { "type": "string", "description": "Product id, e.g. 'pwl'. Must match the folder name." },
+    "name": { "type": "string", "description": "Human readable product name." },
+    "signature": {
+      "type": "object",
+      "required": ["keywords"],
+      "properties": {
+        "keywords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Any of these substrings on page 1 detects this product (detect_product)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "variant": {
+      "type": "object",
+      "description": "Optional sub-variant split (e.g. CI 标准版/优越版). When present, /detect returns variant.",
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "keywords"],
+            "properties": {
+              "key": { "type": "string" },
+              "keywords": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "first_page": {
+      "type": "object",
+      "description": "Regex extractors applied line-by-line to the first-page markdown. Each regex captures fields positionally into 'fields'.",
+      "properties": {
+        "extractors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["fields", "regex"],
+            "properties": {
+              "fields": { "type": "array", "items": { "type": "string" } },
+              "regex": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "plan_row": {
+          "type": ["object", "null"],
+          "description": "How to pull sum_insured/premium_term/annual_premium_plan off a product-code table row (e.g. 'PWL20'). Modes: 'pwl' (PWL code) or 'joy' (LD2 codes).",
+          "properties": {
+            "mode": { "type": "string", "enum": ["pwl", "joy"] },
+            "code_re": { "type": "string" },
+            "targets": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "premium_total_pattern": { "type": "string", "description": "Optional regex for premium_total (subtle label variance across products)." }
+      },
+      "additionalProperties": false
+    },
+    "tables": {
+      "type": "object",
+      "description": "Which PDF pages hold the years/scenario tables and the exact column layout of each (this is where 8-col vs 10-col per-product differences are declared).",
+      "required": ["years", "scenario"],
+      "properties": {
+        "years": {
+          "type": "object",
+          "required": ["page_hints", "cash", "death"],
+          "properties": {
+            "page_hints": { "type": "array", "items": { "type": "string" } },
+            "exclude_keywords": { "type": "array", "items": { "type": "string" } },
+            "fallback_hints": { "type": "array", "items": { "type": "string" } },
+            "cash": {
+              "type": "object",
+              "properties": {
+                "title_kind": { "type": "string" },
+                "cols": {
+                  "type": "object",
+                  "description": "Named column indices, all relative to the raw table row.",
+                  "required": ["year", "premiums", "guaranteed", "terminal", "total"],
+                  "properties": {
+                    "year": { "type": "integer" },
+                    "premiums": { "type": "integer" },
+                    "guaranteed": { "type": "integer" },
+                    "state_bonus": { "type": "integer", "description": "joy's accumulator column." },
+                    "terminal": { "type": "integer" },
+                    "total": { "type": "integer" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "death": {
+              "type": "object",
+              "properties": {
+                "title_kind": { "type": "string" },
+                "cols": {
+                  "type": "object",
+                  "required": ["year", "premiums", "guaranteed", "terminal", "total"],
+                  "properties": {
+                    "year": { "type": "integer" },
+                    "premiums": { "type": "integer" },
+                    "guaranteed": { "type": "integer" },
+                    "state_bonus": { "type": "integer" },
+                    "terminal": { "type": "integer" },
+                    "total": { "type": "integer" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "scenario": {
+          "type": "object",
+          "required": ["page_hints", "cash", "death"],
+          "properties": {
+            "page_hints": { "type": "array", "items": { "type": "string" } },
+            "cash": {
+              "type": "object",
+              "properties": {
+                "title_kind": { "type": "string" },
+                "cols": {
+                  "type": "object",
+                  "required": ["year", "premiums", "guaranteed", "worst_terminal", "worst_total", "best_terminal", "best_total"],
+                  "properties": {
+                    "year": { "type": "integer" },
+                    "premiums": { "type": "integer" },
+                    "guaranteed": { "type": "integer" },
+                    "worst_terminal": { "type": "integer" },
+                    "worst_total": { "type": "integer" },
+                    "best_terminal": { "type": "integer" },
+                    "best_total": { "type": "integer" },
+                    "worst_state_bonus": { "type": "integer" },
+                    "best_state_bonus": { "type": "integer" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "death": {
+              "type": "object",
+              "properties": {
+                "title_kind": { "type": "string" },
+                "cols": {
+                  "type": "object",
+                  "required": ["year", "premiums", "guaranteed", "worst_terminal", "worst_total", "best_terminal", "best_total"],
+                  "properties": {
+                    "year": { "type": "integer" },
+                    "premiums": { "type": "integer" },
+                    "guaranteed": { "type": "integer" },
+                    "worst_state_bonus": { "type": "integer" },
+                    "worst_terminal": { "type": "integer" },
+                    "worst_total": { "type": "integer" },
+                    "best_state_bonus": { "type": "integer" },
+                    "best_terminal": { "type": "integer" },
+                    "best_total": { "type": "integer" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "key_periods": {
+      "type": "object",
+      "description": "Which year/age labels to pull from each table for cards 03-05.",
+      "required": ["cash", "death", "scenario"],
+      "properties": {
+        "cash": { "type": "array", "items": { "type": "string" } },
+        "death": { "type": "array", "items": { "type": "string" } },
+        "scenario": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

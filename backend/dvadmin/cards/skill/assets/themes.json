@@ -1,0 +1,151 @@
+{
+  "premium-navy": {
+    "label": "保险深蓝金",
+    "description": "深蓝+金，金融/保险专业感；柔和渐变 + 暗点纹理，适合财富与保障主题",
+    "background": "#0F2038",
+    "surface": "#16304F",
+    "ink": "#F5F2E9",
+    "muted": "#AEBAC9",
+    "line": "#2E4A6E",
+    "soft": "#1B3A5C",
+    "accents": {
+      "gold": "#D9A441",
+      "blue": "#5B9BD5",
+      "green": "#4E9E7D",
+      "coral": "#E0704A"
+    },
+    "visual": {
+      "chrome": "band",
+      "pattern": "dots",
+      "radius": 22,
+      "outline_width": 1,
+      "marker": "number",
+      "title_rule": "ornament",
+      "eyebrow_box": true,
+      "footer_rule": true,
+      "margin_scale": 1.0,
+      "dark": true,
+      "shadow": true,
+      "gradient": true,
+      "divider": "dots"
+    }
+  },
+  "premium-macaron": {
+    "label": "暖雅马卡龙",
+    "description": "baoyu macaron 调和暖米底，柔和粉彩分区，亲和阅读、轻专业",
+    "background": "#F5F0E8",
+    "surface": "#FFFDF7",
+    "ink": "#2C3E50",
+    "muted": "#6B6B6B",
+    "line": "#E0D9CC",
+    "soft": "#EFE7DA",
+    "accents": {
+      "gold": "#E8A33D",
+      "blue": "#6FA8DC",
+      "green": "#76C5A8",
+      "coral": "#E8655A"
+    },
+    "visual": {
+      "chrome": "band",
+      "pattern": "dots",
+      "radius": 26,
+      "outline_width": 1,
+      "marker": "number",
+      "title_rule": "ornament",
+      "eyebrow_box": true,
+      "footer_rule": true,
+      "margin_scale": 1.0,
+      "dark": false,
+      "shadow": true,
+      "gradient": true,
+      "divider": "dots"
+    }
+  },
+  "premium-warm": {
+    "label": "暖意奶咖",
+    "description": "baoyu warm 大地暖色，奶咖底 + 赭金点缀，温润专业",
+    "background": "#FFECD2",
+    "surface": "#FFF6E6",
+    "ink": "#744210",
+    "muted": "#9C6644",
+    "line": "#E6CFA8",
+    "soft": "#F6D9B0",
+    "accents": {
+      "gold": "#F6AD55",
+      "blue": "#C05621",
+      "green": "#D4A09A",
+      "coral": "#A0522D"
+    },
+    "visual": {
+      "chrome": "band",
+      "pattern": "grid",
+      "radius": 24,
+      "outline_width": 1,
+      "marker": "number",
+      "title_rule": "ornament",
+      "eyebrow_box": true,
+      "footer_rule": true,
+      "margin_scale": 1.0,
+      "dark": false,
+      "shadow": true,
+      "gradient": true,
+      "divider": "ornament"
+    }
+  },
+  "policy-paper": {
+    "label": "保单纸感",
+    "description": "浅色纸感，亲和、正式，适合客户阅读",
+    "background": "#F5F2EA",
+    "surface": "#FFFDF7",
+    "ink": "#1F2A38",
+    "muted": "#5C6773",
+    "line": "#D8D3C6",
+    "soft": "#EDE8DC",
+    "accents": {
+      "gold": "#B8892E",
+      "blue": "#2D5D8E",
+      "green": "#2E7D5B",
+      "coral": "#C05B3C"
+    },
+    "visual": {
+      "chrome": "band",
+      "pattern": "none",
+      "radius": 16,
+      "outline_width": 1,
+      "marker": "circle",
+      "title_rule": "short",
+      "eyebrow_box": false,
+      "footer_rule": true,
+      "margin_scale": 1.0,
+      "dark": false
+    }
+  },
+  "ink-classic": {
+    "label": "墨色经典",
+    "description": "纸本+墨色，编辑部杂志感，适合深度说明",
+    "background": "#F4F1E8",
+    "surface": "#FFFEFA",
+    "ink": "#171A19",
+    "muted": "#5E6561",
+    "line": "#D7D6CE",
+    "soft": "#EEEDE6",
+    "accents": {
+      "gold": "#B77A1F",
+      "blue": "#2D64A3",
+      "green": "#23745B",
+      "coral": "#D95745"
+    },
+    "visual": {
+      "chrome": "band",
+      "pattern": "none",
+      "radius": 22,
+      "outline_width": 1,
+      "marker": "circle",
+      "title_rule": "short",
+      "eyebrow_box": false,
+      "footer_rule": true,
+      "margin_scale": 1.0,
+      "dark": false
+    }
+  }
+}

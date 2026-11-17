@@ -1,0 +1,38 @@
+{
+  "yf-cream": {
+    "label": "万通奶油蓝",
+    "description": "YF Life 奶油纸感 + 品牌蓝主调，强调卡用品牌红。整篇色彩统一，不做多主题切换。",
+    "paper":      "#F2EFE7",
+    "paper-2":    "#E8E2D4",
+    "ink":        "#0F2647",
+    "ink-2":      "#14324F",
+    "muted":      "#5A6371",
+    "line":       "rgba(15,38,71,.18)",
+    "accent":     "#1B6FB8",
+    "accent-2":   "#B82832",
+    "accent-soft": "#D7E3F0",
+    "ink-rgb":    "15,38,71",
+    "paper-rgb":  "242,239,231",
+    "accent-rgb": "27,111,184",
+    "accent2-rgb": "184,40,50",
+    "dark":       false
+  },
+  "aia-red": {
+    "label": "AIA 红",
+    "description": "AIA 品牌红 (#d20d44) + 白底，强调深红，辅助浅灰。现代、专业、高对比。",
+    "paper":      "#FFFFFF",
+    "paper-2":    "#F4F4F4",
+    "ink":        "#1C1C1E",
+    "ink-2":      "#1E3A5C",
+    "muted":      "#6E6E73",
+    "line":       "rgba(28,28,30,.14)",
+    "accent":     "#D20D44",
+    "accent-2":   "#A50A36",
+    "accent-soft": "#FBE5EC",
+    "ink-rgb":    "28,28,30",
+    "paper-rgb":  "255,255,255",
+    "accent-rgb": "210,13,68",
+    "accent2-rgb": "165,10,54",
+    "dark":       false
+  }
+}

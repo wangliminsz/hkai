@@ -1,0 +1,24 @@
+[Unit]
+Description=hkins Celery worker (%i)
+Documentation=file://@APP_DIR@/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@APP_USER@
+Group=@APP_USER@
+WorkingDirectory=@BACKEND@
+Environment=DJANGO_SETTINGS_MODULE=application.settings
+Environment=PYTHONUNBUFFERED=1
+Environment=CONCURRENCY=1
+# Optional per-queue override, e.g. /etc/hkins/worker-cards-io.env -> CONCURRENCY=2
+EnvironmentFile=-/etc/hkins/worker-%i.env
+ExecStart=@VENV@/bin/celery -A application worker -Q %i -n hkins-%i@%h -c ${CONCURRENCY} -l info
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

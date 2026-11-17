@@ -1,0 +1,9 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# hkins scheduled pushes (enqueue only; Celery workers do the actual sending)
+# m   h  dom mon dow  user      command
+30 8  * * 1-5 @APP_USER@ cd @BACKEND@ && @VENV@/bin/python manage.py funds_daily >> @LOG_DIR@/cron.log 2>&1
+45 8  * * *   @APP_USER@ cd @BACKEND@ && @VENV@/bin/python manage.py news_daily --edition morning >> @LOG_DIR@/cron.log 2>&1
+45 8  * * 1-5 @APP_USER@ cd @BACKEND@ && @VENV@/bin/python manage.py funds_analysis >> @LOG_DIR@/cron.log 2>&1
+45 15 * * *  @APP_USER@ cd @BACKEND@ && @VENV@/bin/python manage.py news_daily --edition afternoon >> @LOG_DIR@/cron.log 2>&1
