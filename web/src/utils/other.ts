@@ -49,24 +49,26 @@ export function useTitle() {
  * 设置网站favicon图标
  */
 export function useFavicon() {
-	const stores = SystemConfigStore(pinia);
-	const { systemConfig } = storeToRefs(stores);
+	const brand = useBrandStore(pinia);
+	const systemConfigStore = SystemConfigStore(pinia);
+	const { systemConfig } = storeToRefs(systemConfigStore);
 	nextTick(() => {
-		const iconUrl = systemConfig.value['base.web_favicon']
-		if(iconUrl){
-			// 动态设置 favicon，这里假设 favicon 的 URL 是动态获取的或从变量中来
-			const faviconUrl = `${iconUrl}?t=${new Date().getTime()}`;
-			const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-			if (!link) {
-				const newLink = document.createElement('link') as HTMLLinkElement;
-				newLink.rel = 'shortcut icon';
-				newLink.href = faviconUrl;
-				document.head.appendChild(newLink);
-			} else {
-				link.href = faviconUrl;
-			}
+		// 优先使用「品牌设置」里的 favicon, 其次兼容旧的 base.web_favicon
+		const iconUrl = String(brand.favicon || systemConfig.value['base.web_favicon'] || '').trim();
+		if (!iconUrl) return;
+		// data URL 不能追加查询参数, 普通 URL 加时间戳绕过浏览器缓存
+		const faviconUrl = iconUrl.startsWith('data:')
+			? iconUrl
+			: `${iconUrl}${iconUrl.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+		const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+		if (!link) {
+			const newLink = document.createElement('link') as HTMLLinkElement;
+			newLink.rel = 'shortcut icon';
+			newLink.href = faviconUrl;
+			document.head.appendChild(newLink);
+		} else {
+			link.href = faviconUrl;
 		}
-
 	});
 }
 

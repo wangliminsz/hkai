@@ -20,7 +20,7 @@ export default {
                     lineBot: 'LineBot',
                     personal: 'Profile',
                 },
-                foot: 'proNotify · Channel Console',
+                foot: 'Hongkong HK · Channel Console',
                 changePwd: 'Change Password',
                 logout: 'Sign Out',
                 defaultUser: 'User',

@@ -284,10 +284,10 @@ class InitSettingsViewSet(APIView):
         return new_data
 
     def get(self, request):
+        # 每次从数据库刷新，避免多 gunicorn worker 的内存缓存不一致
+        # 导致刚保存的品牌设置(标题/Logo/Favicon)刷新后回退到默认值。
+        dispatch.refresh_system_config()
         data = dispatch.get_system_config()
-        if not data:
-            dispatch.refresh_system_config()
-            data = dispatch.get_system_config()
         # 不返回后端专用配置
         backend_config = [f"{ele.get('parent__key')}.{ele.get('key')}" for ele in
                           SystemConfig.objects.filter(status=False, parent_id__isnull=False).values('parent__key',

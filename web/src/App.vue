@@ -44,6 +44,10 @@ watch(
 	() => brandStore.title,
 	() => other.useTitle()
 );
+watch(
+	() => brandStore.favicon,
+	() => other.useFavicon()
+);
 // 获取版本号
 const getVersion = computed(() => {
 	let isVersion = false;
@@ -73,7 +77,10 @@ onMounted(() => {
 	// 载入运行时品牌(名称/Logo), 更新后各布局与浏览器标题自动跟随
 	brandStore
 		.refresh()
-		.then(() => other.useTitle())
+		.then(() => {
+			other.useTitle();
+			other.useFavicon();
+		})
 		.catch(() => {});
 	// 全局弹窗安全默认:
 	// 1) Enter 键拦截: 只要非输入型确认框(ElMessageBox)开着, Enter 一律当作「取消」, 从行为上杜绝误确认/误删。

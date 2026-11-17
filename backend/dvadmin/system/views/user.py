@@ -715,27 +715,30 @@ class SuperadminViewSet(CustomModelViewSet):
 
     @action(methods=["GET"], detail=False, url_path="brand_settings")
     def brand_settings(self, request):
-        """读取品牌设置(名称 + Logo, system_config: login.site_title / login.site_logo)"""
+        """读取品牌设置(名称 + Logo + Favicon, system_config: login.site_title / login.site_logo / login.site_favicon)"""
         from dvadmin.system.branding import get_brand_settings
 
         return DetailResponse(data=get_brand_settings())
 
     @action(methods=["POST"], detail=False, url_path="brand_settings/save")
     def brand_settings_save(self, request):
-        """保存品牌设置。logo 支持 data URL / http(s) URL / 站内路径，空值回退前端默认。"""
+        """保存品牌设置。logo/favicon 支持 data URL / http(s) URL / 站内路径，空值回退前端默认。"""
         from dvadmin.system.branding import save_brand_settings
 
         payload = request.data or {}
         data, error = save_brand_settings(
             title=payload.get("title"),
             logo=payload.get("logo"),
+            favicon=payload.get("favicon"),
             reset_logo=str(payload.get("reset_logo", "")).lower() in ("1", "true", "yes"),
+            reset_favicon=str(payload.get("reset_favicon", "")).lower() in ("1", "true", "yes"),
         )
         if error or data is None:
             return ErrorResponse(msg=error or _("Save failed"))
-        logger.info("[SUPERADMIN] %s 修改品牌设置 title=%r logo=%s",
+        logger.info("[SUPERADMIN] %s 修改品牌设置 title=%r logo=%s favicon=%s",
                     request.user.username, data.get("title"),
-                    "custom" if data.get("logo") else "default")
+                    "custom" if data.get("logo") else "default",
+                    "custom" if data.get("favicon") else "default")
         return DetailResponse(data=data, msg=_("Brand settings saved"))
 
     @action(methods=["POST"], detail=True, url_path="toggle_active")

@@ -22,7 +22,7 @@ export default {
                     superadmin: '超级管理',
                     personal: '个人中心',
                 },
-                foot: 'proNotify 管理控制台',
+                foot: 'Hongkong HK 管理控制台',
                 changePwd: '修改密码',
                 logout: '退出登录',
                 defaultUser: '管理员',

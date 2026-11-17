@@ -11,12 +11,12 @@
 			</el-button>
 		</div>
 
-		<!-- 品牌设置(名称 + Logo, 全站运行时生效) -->
+		<!-- 品牌设置(名称 + Logo + Favicon, 全站运行时生效) -->
 		<div class="sa-card brand-card">
 			<div class="card-head">
 				<div class="head-left">
 					<span class="head-title">品牌设置</span>
-					<span class="head-sub">修改后台 Logo 与名称；保存后登录页、控制台侧栏与浏览器标题立即生效。</span>
+					<span class="head-sub">修改后台名称、Logo 与浏览器图标；保存后登录页、控制台侧栏、浏览器标题与 favicon 立即生效。</span>
 				</div>
 			</div>
 			<div class="brand-body">
@@ -41,6 +41,19 @@
 							</el-upload>
 							<el-button v-if="brandLogoChanged" class="soft-gray" @click="clearBrandLogoPick">撤销选择</el-button>
 							<span class="brand-hint">PNG / JPG / SVG / WebP，≤ 1MB；建议透明背景横向图。</span>
+						</div>
+					</div>
+					<div class="brand-field">
+						<span class="s-label">网站图标 Favicon</span>
+						<div class="brand-upload-row">
+							<img class="favicon-preview" :src="brandFaviconDraft || brand.favicon" alt="favicon preview" />
+							<el-upload :auto-upload="false" :show-file-list="false"
+								accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon,.ico"
+								:on-change="onBrandFaviconPick">
+								<el-button class="soft-gray">选择图标</el-button>
+							</el-upload>
+							<el-button v-if="brandFaviconChanged" class="soft-gray" @click="clearBrandFaviconPick">撤销选择</el-button>
+							<span class="brand-hint">ICO / PNG / SVG，建议 32×32 或 64×64，≤ 600KB。</span>
 						</div>
 					</div>
 					<div class="set-actions">
@@ -484,6 +497,8 @@ const brand = useBrandStore();
 const brandTitleDraft = ref('');
 const brandLogoDraft = ref('');
 const brandLogoChanged = ref(false);
+const brandFaviconDraft = ref('');
+const brandFaviconChanged = ref(false);
 const savingBrand = ref(false);
 const resettingBrand = ref(false);
 
@@ -495,6 +510,8 @@ const loadBrand = async () => {
 			brandTitleDraft.value = res.data?.title || '';
 			brandLogoDraft.value = '';
 			brandLogoChanged.value = false;
+			brandFaviconDraft.value = '';
+			brandFaviconChanged.value = false;
 		}
 	} catch (e) {
 		console.error(e);
@@ -527,17 +544,46 @@ const clearBrandLogoPick = () => {
 	brandLogoChanged.value = false;
 };
 
+const onBrandFaviconPick = (uploadFile: any) => {
+	const raw = uploadFile?.raw as File | undefined;
+	if (!raw) return;
+	const isIcon = (raw.type || '').startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|ico)$/i.test(raw.name);
+	if (!isIcon) {
+		ElMessage.warning('请选择图标文件（ICO / PNG / SVG / WebP）');
+		return;
+	}
+	if (raw.size > 600 * 1024) {
+		ElMessage.warning('图标不能超过 600KB');
+		return;
+	}
+	const reader = new FileReader();
+	reader.onload = () => {
+		brandFaviconDraft.value = String(reader.result || '');
+		brandFaviconChanged.value = true;
+	};
+	reader.onerror = () => ElMessage.error('读取图标失败');
+	reader.readAsDataURL(raw);
+};
+
+const clearBrandFaviconPick = () => {
+	brandFaviconDraft.value = '';
+	brandFaviconChanged.value = false;
+};
+
 const saveBrand = async () => {
 	savingBrand.value = true;
 	try {
 		const payload: any = { title: (brandTitleDraft.value || '').trim() };
 		if (brandLogoChanged.value) payload.logo = brandLogoDraft.value;
+		if (brandFaviconChanged.value) payload.favicon = brandFaviconDraft.value;
 		const res: any = await SaveBrandSettings(payload);
 		if (res.code === 2000) {
 			brand.apply(res.data || {});
 			brandTitleDraft.value = res.data?.title || '';
 			brandLogoDraft.value = '';
 			brandLogoChanged.value = false;
+			brandFaviconDraft.value = '';
+			brandFaviconChanged.value = false;
 			ElMessage.success('品牌设置已保存，全站立即生效');
 		} else {
 			ElMessage.error(res.msg || '保存失败');
@@ -552,12 +598,14 @@ const saveBrand = async () => {
 const resetBrand = async () => {
 	resettingBrand.value = true;
 	try {
-		const res: any = await SaveBrandSettings({ title: '', reset_logo: true });
+		const res: any = await SaveBrandSettings({ title: '', reset_logo: true, reset_favicon: true });
 		if (res.code === 2000) {
-			brand.apply({ title: '', logo: '' });
+			brand.apply({ title: '', logo: '', favicon: '' });
 			brandTitleDraft.value = '';
 			brandLogoDraft.value = '';
 			brandLogoChanged.value = false;
+			brandFaviconDraft.value = '';
+			brandFaviconChanged.value = false;
 			ElMessage.success('已恢复默认品牌');
 		} else {
 			ElMessage.error(res.msg || '恢复失败');
@@ -825,6 +873,16 @@ onMounted(() => {
 	.brand-preview-tip {
 		font-size: 12px;
 		color: var(--cn-muted);
+	}
+
+	.favicon-preview {
+		width: 32px;
+		height: 32px;
+		object-fit: contain;
+		border-radius: 6px;
+		background: rgba(255, 255, 255, 0.06);
+		padding: 3px;
+		flex-shrink: 0;
 	}
 
 	.brand-fields {

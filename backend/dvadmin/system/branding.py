@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Runtime branding (app title + logo) stored in system_config.
+"""Runtime branding (app title + logo + favicon) stored in system_config.
 
 The frontend falls back to its build-time env defaults when a value is empty.
-The logo is stored as a small data URL or a URL/path, so it works identically
-in development (Vite :8080) and production (same-origin nginx) without
-depending on media/COS settings.
+The logo and favicon are stored as small data URLs or URL/paths, so they work
+identically in development (Vite :8080) and production (same-origin nginx)
+without depending on media/COS settings.
 """
 import re
 
@@ -14,21 +14,23 @@ from application import dispatch
 from dvadmin.system.models import SystemConfig
 
 LOGO_KEY = "login.site_logo"
+FAVICON_KEY = "login.site_favicon"
 TITLE_KEY = "login.site_title"
 WEB_TITLE_KEY = "base.web_title"
 
 MAX_TITLE_LEN = 50
 MAX_LOGO_CHARS = 1_500_000  # ~1.1 MB binary as base64
+MAX_FAVICON_CHARS = 900_000  # ~600 KB binary as base64
 
 _DATA_URL_RE = re.compile(
-    r"^data:image/(?:png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+$",
+    r"^data:image/(?:png|jpe?g|gif|webp|svg\+xml|x-icon|vnd\.microsoft\.icon|ico|icon);base64,[A-Za-z0-9+/=\s]+$",
     re.IGNORECASE,
 )
 _URL_RE = re.compile(r"^(?:https?://|/)\S+$", re.IGNORECASE)
 
 
 def default_title() -> str:
-    return str(getattr(settings, "APP_NAME", "") or "DayBetter")
+    return str(getattr(settings, "APP_NAME", "") or "Hongkong HK")
 
 
 def _ensure_row(parent_key: str, key: str, title: str, form_item_type: int = 0):
@@ -57,12 +59,14 @@ def get_brand_settings() -> dict:
     return {
         "title": str(dispatch.get_system_config_values(TITLE_KEY) or "").strip(),
         "logo": str(dispatch.get_system_config_values(LOGO_KEY) or "").strip(),
+        "favicon": str(dispatch.get_system_config_values(FAVICON_KEY) or "").strip(),
         "default_title": default_title(),
         "default_logo": "/db_trans.png",
+        "default_favicon": "/favicon.ico",
     }
 
 
-def save_brand_settings(title=None, logo=None, reset_logo: bool = False):
+def save_brand_settings(title=None, logo=None, favicon=None, reset_logo: bool = False, reset_favicon: bool = False):
     """Validate + persist brand settings. Returns (data, error_message)."""
     if title is not None:
         title = str(title).strip()
@@ -80,6 +84,16 @@ def save_brand_settings(title=None, logo=None, reset_logo: bool = False):
         if logo and not (_DATA_URL_RE.match(logo) or _URL_RE.match(logo)):
             return None, "Logo 格式不支持（请上传 png/jpg/gif/webp/svg 或填写图片 URL）"
         _set_value("login", "site_logo", "登录网站Logo", logo, form_item_type=7)
+
+    if reset_favicon:
+        _set_value("login", "site_favicon", "网站小图标", "", form_item_type=7)
+    elif favicon is not None:
+        favicon = str(favicon).strip()
+        if len(favicon) > MAX_FAVICON_CHARS:
+            return None, "Favicon 图片过大（请上传 600KB 以内的图片）"
+        if favicon and not (_DATA_URL_RE.match(favicon) or _URL_RE.match(favicon)):
+            return None, "Favicon 格式不支持（请上传 .ico/png/jpg/gif/webp/svg 或填写图片 URL）"
+        _set_value("login", "site_favicon", "网站小图标", favicon, form_item_type=7)
 
     dispatch.refresh_system_config()
     return get_brand_settings(), None

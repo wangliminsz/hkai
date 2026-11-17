@@ -22,7 +22,7 @@ export default {
                     superadmin: 'Superadmin',
                     personal: 'Profile',
                 },
-                foot: 'proNotify · Admin Console',
+                foot: 'Hongkong HK · Admin Console',
                 changePwd: 'Change Password',
                 logout: 'Sign Out',
                 defaultUser: 'Admin',

@@ -20,7 +20,7 @@ export default {
                     lineBot: '可用 LineBot',
                     personal: '个人中心',
                 },
-                foot: 'proNotify · 渠道工作台',
+                foot: 'Hongkong HK · 渠道工作台',
                 changePwd: '修改密码',
                 logout: '退出登录',
                 defaultUser: '用户',
