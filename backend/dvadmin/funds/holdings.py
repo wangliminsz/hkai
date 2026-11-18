@@ -44,8 +44,17 @@ def _llm() -> tuple[str, str, str]:
     return base.rstrip("/"), model, key
 
 
+_PDF_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "Accept": "application/pdf,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-HK,zh;q=0.9,en;q=0.8",
+    "Origin": "https://www.fsmglobal.hk",
+    "Referer": "https://www.fsmglobal.hk/",
+}
+
+
 def fetch_pdf(url: str, timeout: int = 30) -> bytes:
-    r = requests.get(url, timeout=timeout)
+    r = requests.get(url, headers=_PDF_HEADERS, timeout=timeout)
     r.raise_for_status()
     return r.content
 
