@@ -1,4 +1,4 @@
-﻿"""Page 1 (客户资料) -> Page 2 (选择产品), filled via the deterministic Locator.
+"""Page 1 (客户资料) -> Page 2 (选择产品), filled via the deterministic Locator.
 
 P2 scope: log in, fill page 1, advance to page 2, fill product/plan/level/
 sum-insured, then STOP. No 下一步 on page 2, no submit, no PDF.
@@ -197,6 +197,8 @@ async def select_product(page: Page, product: str) -> None:
     res = None
     if name:
         res = loc.by_role_text(cands, "option", name)
+    if not res:
+        res = loc.by_code(cands, product, roles=["option"])
     if not res:
         res = loc.by_tokens(cands, [product.upper()], roles=["option"])
     if not res:

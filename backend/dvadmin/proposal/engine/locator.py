@@ -238,6 +238,30 @@ class Locator:
             return LocatorResult(hits[0], "L1-role", 1.0, f"role={role} text={text!r}")
         return None
 
+    def by_code(
+        self,
+        candidates: Iterable[Element],
+        code: str,
+        *,
+        roles: Sequence[str] | None = None,
+    ) -> LocatorResult | None:
+        """Match a product code as a standalone token (e.g. PHP vs PHPS/PHPE)."""
+        wanted = str(code or "").upper()
+        if not wanted:
+            return None
+        pattern = re.compile(rf"(^|[^A-Z0-9]){re.escape(wanted)}([^A-Z0-9]|$)")
+        pool = [el for el in candidates if not roles or el.role in roles]
+        pool = dedup_options(pool)
+        hits = [el for el in pool if pattern.search(el.text or "")]
+        if len(hits) == 1:
+            return LocatorResult(hits[0], "L1-code", 1.0, f"code={wanted}")
+        if len(hits) > 1:
+            raise LocatorError(
+                f"Ambiguous match for code {wanted}: "
+                + "; ".join(str(h) for h in hits)
+            )
+        return None
+
     # -- L2: fuzzy by tokens ------------------------------------------------
     def by_tokens(
         self,
