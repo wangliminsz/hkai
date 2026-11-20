@@ -16,6 +16,7 @@ from dvadmin.utils.permission import SuperuserPermission
 from . import services
 from .kb import explain as kb_explain
 from .kb import document_paths, list_products, load_doc_ids, load_meta, product_dir, qa
+from .kb.router import ProductSelectionRequired
 from .tasks import ingest_product
 
 logger = logging.getLogger(__name__)
@@ -151,6 +152,13 @@ def chat(request):
             history=data.get("history"),
             product_ids=data.get("product_ids"),
         )
+    except ProductSelectionRequired as exc:
+        return SuccessResponse(data={
+            "needs_product": True,
+            "message": exc.message,
+            "candidates": exc.candidates,
+            "reason": exc.reason,
+        })
     except Exception as exc:  # noqa: BLE001
         logger.exception("[RAG] chat failed")
         return ErrorResponse(msg=str(exc))
@@ -181,10 +189,33 @@ def chat_stream(request):
     def gen():
         try:
             yield _sse("start", {})
-            client, pids, chunks = qa.stream(
-                question, product_id, history, product_ids=product_ids
+            try:
+                client, pids, chunks = qa.stream(
+                    question, product_id, history, product_ids=product_ids
+                )
+            except ProductSelectionRequired as exc:
+                yield _sse(
+                    "needs_product",
+                    {
+                        "message": exc.message,
+                        "candidates": exc.candidates,
+                        "reason": exc.reason,
+                    },
+                )
+                return
+
+            header = qa.source_header(pids)
+            yield _sse(
+                "meta",
+                {
+                    "product_id": pids[0],
+                    "product_ids": pids,
+                    "product_names": qa.product_names(pids),
+                    "source_header": header,
+                },
             )
-            yield _sse("meta", {"product_id": pids[0], "product_ids": pids})
+            if header:
+                yield _sse("delta", {"text": f"{header}\n\n"})
             stripper = CiteStripper()
             acc: list[str] = []
             for chunk in chunks:
@@ -203,6 +234,8 @@ def chat_stream(request):
                     "citations": result["citations"],
                     "product_id": pids[0],
                     "product_ids": pids,
+                    "product_names": qa.product_names(pids),
+                    "source_header": result.get("source_header", header),
                 },
             )
         except Exception as exc:  # noqa: BLE001

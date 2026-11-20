@@ -52,7 +52,7 @@
 			<div v-if="!messages.length" class="empty">
 				<h2>問一問產品資料</h2>
 				<p v-if="selected">{{ selected.summary }}</p>
-				<p v-else>選擇產品，或直接提問由系統自動匹配。</p>
+				<p v-else>選擇產品；或直接提問並註明產品名稱，系統會自動匹配。</p>
 				<div class="samples">
 					<button v-for="s in sampleList" :key="s" @click="input = s">{{ s }}</button>
 				</div>
@@ -68,15 +68,31 @@
 							<span>{{ copiedIndex === i ? '已複製' : '複製' }}</span>
 						</button>
 					</div>
-					<div v-if="m.content" class="text">{{ m.content }}<span v-if="m.streaming" class="caret"></span></div>
+					<div v-if="m.content" class="text-wrap">
+						<div v-if="splitAnswer(m.content).header" class="source-head">{{ splitAnswer(m.content).header }}</div>
+						<div class="text">{{ splitAnswer(m.content).body }}<span v-if="m.streaming" class="caret"></span></div>
+					</div>
 					<div v-else-if="m.streaming" class="text typing">
 						<span class="spinner"></span>{{ phase || '檢索中…' }}<span v-if="elapsed" class="secs">已等待 {{ elapsed }}s</span>
 					</div>
 
-					<div v-if="m.role === 'assistant' && m.content && !m.streaming" class="plain-sec">
+					<div v-if="m.needsProduct" class="need-pick">
+						<span class="need-label">請選擇產品後重試：</span>
+						<button
+							v-for="c in m.candidates"
+							:key="c.product_id"
+							type="button"
+							class="cand"
+							@click="pickCandidate(c, m)"
+						>
+							{{ c.name }}<span v-if="!c.indexed" class="cand-sub">未建索引</span>
+						</button>
+					</div>
+
+					<div v-if="m.role === 'assistant' && m.content && !m.streaming && !m.needsProduct" class="plain-sec">
 						<div class="plain-title">
 							大白話版
-							<button v-if="!m.plainPending" class="mini" @click="generatePlain(m, m.content)">
+							<button v-if="!m.plainPending" class="mini" @click="generatePlain(m, plainText(m))">
 								{{ m.plain ? '重新生成' : '生成' }}
 							</button>
 						</div>
@@ -137,6 +153,7 @@ const phase = ref('');
 const elapsed = ref(0);
 const copiedIndex = ref(-1);
 let timer: any = null;
+let pendingSend = false;
 
 const plainTerm = ref('');
 const plainResult = ref('');
@@ -174,7 +191,7 @@ const onCompanyChange = () => {
 	}
 	reset();
 };
-const DEFAULT_SAMPLES = ['尚裕終身壽險保什麼？', '危疾加護保(優越版) vs (標準版)有何差異？', '保費未繳的寬限期是多少天？'];
+const DEFAULT_SAMPLES = ['尚裕終身壽險保什麼？', '危疾加護保(優越版) vs (標準版)有何差異？', '尚裕終身壽險保費未繳的寬限期是多少天？'];
 const sampleList = computed(() => (selected.value?.samples?.length ? selected.value.samples : DEFAULT_SAMPLES));
 const DOC_LABEL: Record<string, string> = { contract: '合約條款', brochure: '產品介紹' };
 const docHref = (d: any) => (d?.download_url ? getBaseURL(d.download_url) : '');
@@ -214,6 +231,32 @@ function reset() {
 function resetMessages() {
 	messages.value = [];
 	errorMsg.value = '';
+}
+
+function splitAnswer(content: string) {
+	const text = content || '';
+	const idx = text.indexOf('\n');
+	const first = idx === -1 ? text : text.slice(0, idx);
+	if (idx !== -1 && first.startsWith('【本次依據】')) {
+		return { header: first, body: text.slice(idx + 1).replace(/^\n+/, '') };
+	}
+	return { header: '', body: text };
+}
+
+function plainText(m: any) {
+	return splitAnswer(m?.content).body || m?.content || '';
+}
+
+function pickCandidate(c: any, m: any) {
+	const question = m?.question || input.value;
+	productId.value = c.product_id;
+	companyId.value = c.insurer || '';
+	compareId.value = '';
+	messages.value = [];
+	errorMsg.value = '';
+	input.value = question;
+	if (busy.value) pendingSend = true;
+	else send();
 }
 
 async function copyText(text: string, index: number) {
@@ -285,7 +328,7 @@ async function send() {
 	startTimer();
 	scrollToBottom();
 
-	const reply: any = { role: 'assistant', content: '', citations: [], streaming: true };
+	const reply: any = { role: 'assistant', content: '', citations: [], streaming: true, question };
 	messages.value.push(reply);
 
 	try {
@@ -296,10 +339,13 @@ async function send() {
 			history,
 			onStart: () => (phase.value = '已連上伺服器，等待模型回應…'),
 			onMeta: (m: any) => {
-				if (!productId.value) {
+				if (!productId.value && m.product_id) {
 					productId.value = m.product_id;
 					const p = products.value.find((x) => x.product_id === m.product_id);
 					if (p && p.insurer) companyId.value = p.insurer;
+				}
+				if (!compareId.value && Array.isArray(m.product_ids) && m.product_ids.length > 1) {
+					compareId.value = m.product_ids[1];
 				}
 				phase.value = '正在檢索產品文件…';
 			},
@@ -309,11 +355,20 @@ async function send() {
 				scrollToBottom();
 			},
 			onDone: (d: any) => {
-				reply.content = d.answer;
+				reply.content = d.answer || reply.content;
 				reply.citations = d.citations || [];
 				reply.streaming = false;
 				scrollToBottom();
-				if (autoPlain.value && d.answer) generatePlain(reply, d.answer);
+				if (autoPlain.value && reply.content) generatePlain(reply, plainText(reply));
+			},
+			onNeedsProduct: (d: any) => {
+				reply.content = d?.message || '未找到對應產品，請先選擇產品後再提問。';
+				reply.needsProduct = true;
+				reply.candidates = d?.candidates || [];
+				reply.streaming = false;
+				phase.value = '';
+				stopTimer();
+				scrollToBottom();
 			},
 		});
 	} catch (e: any) {
@@ -325,6 +380,10 @@ async function send() {
 		reply.streaming = false;
 		busy.value = false;
 		scrollToBottom();
+		if (pendingSend) {
+			pendingSend = false;
+			nextTick(() => send());
+		}
 	}
 }
 </script>
@@ -570,6 +629,51 @@ async function send() {
 	.copy.done {
 		color: #4caf82;
 		border-color: #2f5a45;
+	}
+	.text-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.source-head {
+		align-self: flex-start;
+		font-size: 12px;
+		line-height: 1.5;
+		color: #9cc3ff;
+		background: #172030;
+		border: 1px solid #2f3b4f;
+		border-left: 3px solid var(--rag-primary);
+		border-radius: 6px;
+		padding: 5px 9px;
+		word-break: break-word;
+	}
+	.need-pick {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		margin-top: 10px;
+	}
+	.need-label {
+		font-size: 12px;
+		color: var(--rag-muted);
+	}
+	.cand {
+		border: 1px solid #2f5a45;
+		background: #16211c;
+		color: #7dd6a5;
+		font-size: 12px;
+		padding: 5px 10px;
+		border-radius: 7px;
+		cursor: pointer;
+	}
+	.cand:hover {
+		border-color: #4caf82;
+	}
+	.cand-sub {
+		color: var(--rag-faint);
+		margin-left: 6px;
+		font-size: 11px;
 	}
 	.text {
 		white-space: pre-wrap;

@@ -37,8 +37,9 @@ export async function sendChatStream(opts: {
 	onMeta?: (d: any) => void;
 	onDelta?: (t: string) => void;
 	onDone?: (d: any) => void;
+	onNeedsProduct?: (d: any) => void;
 }) {
-	const { question, productId, productIds, history, onStart, onMeta, onDelta, onDone } = opts;
+	const { question, productId, productIds, history, onStart, onMeta, onDelta, onDone, onNeedsProduct } = opts;
 	const token = Session.get('token');
 	const res = await fetch(getBaseURL('api/rag/chat/stream/'), {
 		method: 'POST',
@@ -85,6 +86,7 @@ export async function sendChatStream(opts: {
 			else if (event === 'meta') onMeta?.(data);
 			else if (event === 'delta') onDelta?.(data.text || '');
 			else if (event === 'done') onDone?.(data);
+			else if (event === 'needs_product') onNeedsProduct?.(data);
 			else if (event === 'error') throw new Error(data.message || '服務端錯誤');
 		}
 	}
