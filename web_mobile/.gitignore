@@ -1,0 +1,8 @@
+node_modules
+node_modules/
+dist/
+.vite/
+*.log
+.DS_Store
+# local env overrides only; .env.development / .env.production are tracked
+.env.local*

@@ -1,0 +1,29 @@
+{
+  "name": "hkins-web-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mobile frontend for the hkins / Hongkong HK channel workspace",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.4",
+    "pinia": "^2.0.28",
+    "ts-md5": "^1.3.1",
+    "vant": "^4.9.19",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.42",
+    "@vitejs/plugin-vue": "^5.1.2",
+    "typescript": "^4.9.4",
+    "vite": "^5.4.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
