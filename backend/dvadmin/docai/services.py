@@ -75,13 +75,18 @@ def extract_pdf_text(pdf_bytes: bytes, max_chars: int = 60000) -> str:
     return "\n\n".join(parts)
 
 
-def extract_image_markdown(image_bytes: bytes) -> str:
+def extract_image_markdown(image_bytes: bytes, tenant_id=None) -> str:
     """Transcribe an uploaded image to markdown with Qwen3-VL (SiliconFlow)."""
     from PIL import Image, ImageOps
 
-    base = (getattr(settings, "VLLM_BASE", "") or "").rstrip("/")
-    model = getattr(settings, "VLLM_MODEL", "") or "Qwen/Qwen3-VL-30B-A3B-Instruct"
-    key = getattr(settings, "VLLM_API_KEY", "") or ""
+    from dvadmin.aikeys import resolver
+
+    cred = resolver.get_single(tenant_id, "vllm", require=True, use_context=False)
+    if cred is None:
+        raise RuntimeError("视觉模型未配置")
+    base = (cred.base_url or "").rstrip("/")
+    model = cred.model or "Qwen/Qwen3-VL-30B-A3B-Instruct"
+    key = cred.api_key
     if not base or not key:
         raise RuntimeError("视觉模型未配置（VLLM_BASE / VLLM_API_KEY）")
 
@@ -209,7 +214,47 @@ def render_report_html(filename: str, kind: str, analysis_md: str, content_text:
     )
 
 
-def send_report_email(to_email: str, filename: str, html_body: str) -> None:
+_PRINT_CSS = """<style>@media print{
+body{background:#fff!important}
+.sheet{max-width:none!important;padding:0!important}
+.fulltext{max-height:none!important;overflow:visible!important}
+h1,h2,h3{break-after:avoid}
+table,pre,blockquote{break-inside:avoid}
+article table{page-break-inside:auto}
+article tr{page-break-inside:avoid}
+}</style>"""
+
+
+def render_report_pdf(html_body: str) -> bytes:
+    from playwright.sync_api import sync_playwright
+
+    html = html_body.replace("</head>", _PRINT_CSS + "</head>", 1) if "</head>" in html_body else _PRINT_CSS + html_body
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        try:
+            page = browser.new_page()
+            page.set_content(html, wait_until="load")
+            page.evaluate("document.fonts.ready")
+            page.emulate_media(media="print")
+            pdf = page.pdf(
+                format="A4",
+                print_background=True,
+                margin={"top": "14mm", "bottom": "14mm", "left": "12mm", "right": "12mm"},
+                display_header_footer=True,
+                header_template="<div></div>",
+                footer_template=(
+                    "<div style='width:100%;font-size:9px;color:#777;text-align:center;"
+                    "font-family:-apple-system,\"PingFang SC\",\"Noto Sans CJK SC\",sans-serif'>"
+                    "<span class='pageNumber'></span> / <span class='totalPages'></span></div>"
+                ),
+            )
+            return pdf
+        finally:
+            browser.close()
+
+
+def send_report_email(to_email: str, filename: str, html_body: str,
+                      pdf_bytes: bytes | None = None, pdf_name: str = "") -> None:
     recipients = [x.strip() for x in re.split(r"[,;，；]", to_email or "") if x.strip()]
     if not recipients:
         raise RuntimeError("未填写收件邮箱")
@@ -221,4 +266,6 @@ def send_report_email(to_email: str, filename: str, html_body: str) -> None:
         recipients,
     )
     msg.attach_alternative(html_body, "text/html")
+    if pdf_bytes:
+        msg.attach(pdf_name or "AI-analysis.pdf", pdf_bytes, "application/pdf")
     msg.send(fail_silently=False)

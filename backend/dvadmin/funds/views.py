@@ -216,16 +216,38 @@ def fund_report(request, lot: str, name: str):
 
 
 # --------------------------------------------------------------------------
-# Qveris API 额度(来自 PocketBase qveris_keys, 缓存 5 分钟)
+# Qveris API 额度(来自 Django DB 的 AI Key 池, 缓存 5 分钟)
 # --------------------------------------------------------------------------
 
 QVERIS_CACHE_KEY = "funds:qveris_credits"
 QVERIS_CACHE_TTL = 300
 
 
+def _qveris_credit_items(rows) -> list[dict]:
+    items = []
+    for row in rows:
+        items.append({
+            "id": row.id,
+            "tenant_id": row.tenant_id,
+            "tenant_name": row.tenant.name if row.tenant_id and row.tenant else "平台",
+            "login_name": row.tenant.name if row.tenant_id and row.tenant else "平台",
+            "key_env": row.get_provider_display(),
+            "name": row.name,
+            "masked_key": row.key_mask,
+            "remain_credit": float(row.remain_credit) if row.remain_credit is not None else None,
+            "is_active": row.is_active,
+            "last_checked_at": row.last_checked_at.strftime("%Y-%m-%d %H:%M:%S") if row.last_checked_at else None,
+            "last_error": row.last_error,
+        })
+    return items
+
+
 @api_view(["GET"])
 @permission_classes([InternalPermission])
 def qveris_credits(request):
+    from dvadmin.aikeys import services as aikey_services
+    from dvadmin.aikeys.models import PROVIDER_QVERIS, ApiKey
+
     force = str(request.query_params.get("refresh") or "").lower() in ("1", "true", "yes")
     data = None
     if not force:
@@ -235,15 +257,29 @@ def qveris_credits(request):
             data = None
     if data is None:
         try:
-            items = pb.get_qveris_keys()
+            rows = list(
+                ApiKey.objects.select_related("tenant")
+                .filter(provider=PROVIDER_QVERIS)
+                .order_by("tenant_id", "priority", "id")
+            )
+            if force:
+                for row in rows:
+                    aikey_services.refresh_key(row)
+                rows = list(
+                    ApiKey.objects.select_related("tenant")
+                    .filter(provider=PROVIDER_QVERIS)
+                    .order_by("tenant_id", "priority", "id")
+                )
+            items = _qveris_credit_items(rows)
         except Exception as exc:  # noqa: BLE001
             logger.exception("[FUNDS] qveris credits fetch failed")
             return ErrorResponse(msg=f"读取 Qveris 额度失败: {exc}")
+        values = [i["remain_credit"] for i in items if i["remain_credit"] is not None]
         data = {
             "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "count": len(items),
-            "total": round(sum(i["remain_credit"] for i in items), 2),
-            "lowest": items[0]["remain_credit"] if items else None,
+            "total": round(sum(values), 2) if values else 0,
+            "lowest": min(values) if values else None,
             "items": items,
         }
         try:

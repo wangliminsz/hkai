@@ -85,6 +85,7 @@ def prepare(
     history: list[dict] | None = None,
     client=None,
     product_ids: list[str] | None = None,
+    tenant_id=None,
 ):
     pids = resolve_products(question, product_id, product_ids)
     doc_ids: list[str] = []
@@ -98,7 +99,7 @@ def prepare(
             f"「{names}」尚未建立索引或暫無可檢索文件，暫時無法回答。"
             "請先建立索引或選擇其他產品。"
         )
-    client = client or build_client()
+    client = client or build_client(tenant_id)
     messages = list(history or [])
     messages.append({"role": "user", "content": question})
     return client, messages, doc_ids, pids
@@ -181,8 +182,9 @@ def answer(
     history: list[dict] | None = None,
     client=None,
     product_ids: list[str] | None = None,
+    tenant_id=None,
 ) -> dict:
-    client, messages, doc_ids, pids = prepare(question, product_id, history, client, product_ids)
+    client, messages, doc_ids, pids = prepare(question, product_id, history, client, product_ids, tenant_id)
     raw = client.chat(messages, doc_id=doc_ids, instructions=INSTRUCTIONS, **_chat_kwargs())
     return finalize(client, raw, pids)
 
@@ -193,7 +195,8 @@ def stream(
     history: list[dict] | None = None,
     client=None,
     product_ids: list[str] | None = None,
+    tenant_id=None,
 ):
-    client, messages, doc_ids, pids = prepare(question, product_id, history, client, product_ids)
+    client, messages, doc_ids, pids = prepare(question, product_id, history, client, product_ids, tenant_id)
     chunks = client.chat(messages, doc_id=doc_ids, instructions=INSTRUCTIONS, **_chat_kwargs(stream=True))
     return client, pids, chunks

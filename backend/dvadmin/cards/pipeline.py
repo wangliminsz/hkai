@@ -14,21 +14,44 @@ class PipelineError(Exception):
     pass
 
 
-def _env() -> dict:
+_LLM_ENV_KEYS = ("DEEPSEEK_API_KEY", "DEEPSEEK_BASE", "DEEPSEEK_MODEL")
+
+
+def _env(tenant_id=None, cred=None) -> dict:
     env = os.environ.copy()
     extra = [str(app_dir()), str(scripts_dir())]
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = os.pathsep.join(extra + ([existing] if existing else []))
+
+    # 先用当前进程的全局值兜底，再用解析到的渠道/平台凭据覆盖；
+    # 严格模式下没有可用 Key 时把三个变量清空，避免子进程偷偷用平台 Key。
     from django.conf import settings
 
-    for key in ("DEEPSEEK_API_KEY", "DEEPSEEK_BASE", "DEEPSEEK_MODEL"):
+    for key in _LLM_ENV_KEYS:
         val = getattr(settings, key, None) or os.getenv(key)
         if val:
             env[key] = str(val)
+
+    try:
+        from dvadmin.aikeys import resolver
+
+        if cred is None:
+            cred = resolver.get_single(tenant_id, "deepseek", require=False, use_context=False)
+        if cred is not None:
+            env["DEEPSEEK_API_KEY"] = cred.api_key
+            env["DEEPSEEK_BASE"] = cred.base_url
+            env["DEEPSEEK_MODEL"] = cred.model
+        else:
+            for key in _LLM_ENV_KEYS:
+                env.pop(key, None)
+    except Exception:  # noqa: BLE001 - 子进程仍可走 fallback 文案
+        for key in _LLM_ENV_KEYS:
+            env.pop(key, None)
     return env
 
 
-def _run(args: list[str], timeout: int = 600, on_line=None) -> str:
+def _run(args: list[str], timeout: int = 600, on_line=None,
+         tenant_id=None, cred=None) -> str:
     proc = subprocess.Popen(
         [sys.executable, *args],
         cwd=str(scripts_dir()),
@@ -36,7 +59,7 @@ def _run(args: list[str], timeout: int = 600, on_line=None) -> str:
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
-        env=_env(),
+        env=_env(tenant_id, cred),
     )
     lines: list[str] = []
     try:
@@ -73,9 +96,11 @@ def detect_only(pdf_path: Path) -> dict:
     return json.loads(out)
 
 
-def extract_data(pdf_path: Path, product: str, work: Path, on_log=None, on_progress=None) -> dict:
+def extract_data(pdf_path: Path, product: str, work: Path, on_log=None, on_progress=None,
+                 tenant_id=None, cred=None) -> dict:
     _emit(on_log, on_progress, 5, "解析计划书 PDF…")
-    _run(["extract_proposal.py", str(pdf_path), "--output-dir", str(work)], timeout=180, on_line=on_log)
+    _run(["extract_proposal.py", str(pdf_path), "--output-dir", str(work)],
+         timeout=180, on_line=on_log, tenant_id=tenant_id, cred=cred)
     first, years, scen = _md(work, "首页信息"), _md(work, "所有保单年"), _md(work, "不同投资回报")
     if not (first and years and scen):
         raise PipelineError("提取失败：缺少计划书 md 文件")
@@ -85,7 +110,7 @@ def extract_data(pdf_path: Path, product: str, work: Path, on_log=None, on_progr
         "extract_templated.py", str(work),
         "--parser", str(products_dir() / product / "parser.json"),
         "--output", str(data_out),
-    ], timeout=90, on_line=on_log)
+    ], timeout=90, on_line=on_log, tenant_id=tenant_id, cred=cred)
     if not data_out.exists():
         raise PipelineError("extract_templated 未生成 data.json")
     data = json.loads(data_out.read_text(encoding="utf-8"))
@@ -157,9 +182,18 @@ def card_fields(data: dict, product: str, style: str = "llm") -> list[dict]:
 
 def build_and_render(pdf_path: Path, product: str, *, theme: str | None = None,
                      overrides: str = "{}", cover_path: Path | None = None,
-                     work_dir: Path | None = None, on_log=None, on_progress=None) -> dict:
+                     work_dir: Path | None = None, on_log=None, on_progress=None,
+                     tenant_id=None) -> dict:
+    # 在进入耗时的子进程前先按 strict/fallback 策略解析 DeepSeek 凭据：
+    # strict 模式下渠道没配 Key 会在这里直接报错，而不是子进程静默用 fallback 文案。
+    from dvadmin.aikeys import resolver
+
+    cred = resolver.get_single(tenant_id, "deepseek", require=True, use_context=False)
+    if cred is None:  # require=True 时理论上不会发生
+        raise PipelineError("未配置可用的 DeepSeek Key")
     work = Path(work_dir) if work_dir else Path(tempfile.mkdtemp(prefix="cards_"))
-    extracted = extract_data(pdf_path, product, work, on_log=on_log, on_progress=on_progress)
+    extracted = extract_data(pdf_path, product, work, on_log=on_log, on_progress=on_progress,
+                             tenant_id=tenant_id, cred=cred)
     cards_json = work / "cards.json"
     images = work / "images"
 
@@ -171,13 +205,13 @@ def build_and_render(pdf_path: Path, product: str, *, theme: str | None = None,
     ]
     if cover_path:
         args += ["--cover-image", str(cover_path)]
-    _run(args, timeout=600, on_line=on_log)
+    _run(args, timeout=600, on_line=on_log, tenant_id=tenant_id, cred=cred)
 
     _emit(on_log, on_progress, 72, "渲染图片（Playwright）…")
     rargs = ["render_llm.py", str(cards_json), "--output-dir", str(images)]
     if theme:
         rargs += ["--theme", theme]
-    _run(rargs, timeout=600, on_line=on_log)
+    _run(rargs, timeout=600, on_line=on_log, tenant_id=tenant_id, cred=cred)
     _emit(on_log, on_progress, 94, "收集卡片…")
 
     payload = json.loads(cards_json.read_text(encoding="utf-8"))

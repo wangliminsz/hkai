@@ -164,7 +164,7 @@ def _get_roles(tenant):
 
 # 租户标准业务菜单集(按 web_path 定位, 与「租户9」手动授权一致; 新租户自动授权同一套)
 MENU_BASE_PATHS = ["/home", "/rag", "/docai", "/cards", "/funds", "/system", "/property", "/linebot", "/groupdoc", "/calendar", "/personal", "/changelog"]
-MENU_MANAGER_ONLY_PATHS = ["/broadcast", "/org"]
+MENU_MANAGER_ONLY_PATHS = ["/broadcast", "/org", "/ai-keys"]
 
 
 def ensure_tenant_tier_roles(tenant):

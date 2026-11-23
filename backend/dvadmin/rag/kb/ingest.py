@@ -23,13 +23,13 @@ def _is_indexed(doc: dict, ids: dict) -> bool:
     return doc["file"] in ids or doc["doc_type"] in ids
 
 
-def ingest(product_id: str, force: bool = False) -> dict[str, str]:
+def ingest(product_id: str, force: bool = False, tenant_id=None) -> dict[str, str]:
     """为一个产品建立/补齐 PageIndex 树索引(逐个文档)。
 
     调用 LLM 建树, 有耗时与成本(约 $0.001/页); 已建索引的文档默认跳过。
     doc_ids 以“文件名”为键(支持同一产品多个同类型文档)。
     """
-    client = build_client()
+    client = build_client(tenant_id)
     ids = load_doc_ids(product_id)
 
     for doc in _docs(product_id):
@@ -45,8 +45,8 @@ def ingest(product_id: str, force: bool = False) -> dict[str, str]:
     return ids
 
 
-def ingest_all(force: bool = False) -> dict[str, dict[str, str]]:
+def ingest_all(force: bool = False, tenant_id=None) -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for product in list_products():
-        out[product["product_id"]] = ingest(product["product_id"], force=force)
+        out[product["product_id"]] = ingest(product["product_id"], force=force, tenant_id=tenant_id)
     return out

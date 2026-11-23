@@ -8,7 +8,7 @@
 		</div>
 
 		<div class="quick-grid">
-			<router-link v-for="q in quicks" :key="q.path" :to="q.path" class="q-card">
+			<router-link v-for="q in quicks" :key="q.path" :to="q.path" class="q-card" :class="{ primary: q.primary }">
 				<el-icon class="q-icon"><component :is="q.icon" /></el-icon>
 				<div class="q-body">
 					<div class="q-title">{{ q.title }}</div>
@@ -51,6 +51,15 @@ const quicks = computed(() => {
 	const items = [
 		{ path: '/rag', title: 'AI 知识库', desc: '产品问答 · 术语解释', icon: 'ele-Reading' },
 	];
+	if (isTenantManager.value) {
+		items.unshift({
+			path: '/ai-keys',
+			title: 'AI Key',
+			desc: '配置渠道自己的 QVeris / DeepSeek / 视觉 / RAG Key',
+			icon: 'ele-Key',
+			primary: true,
+		});
+	}
 	if (docaiAllowed.value) {
 		items.push({ path: '/docai', title: 'AI 文件分析', desc: '上传 PDF/图片 → 邮件报告', icon: 'ele-MagicStick' });
 	}
@@ -122,6 +131,11 @@ onMounted(async () => {
 		&:hover {
 			border-color: #3d5a80;
 			transform: translateY(-1px);
+		}
+		&.primary {
+			border-color: rgba(64, 158, 255, 0.55);
+			background: linear-gradient(135deg, rgba(64, 158, 255, 0.12), var(--cn-card, #1a1a1c) 55%);
+			.q-icon { color: #79bbff; }
 		}
 		.q-icon { font-size: 22px; color: #409eff; flex-shrink: 0; }
 		.q-body { flex: 1; min-width: 0; }

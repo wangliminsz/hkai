@@ -54,3 +54,18 @@ COLUMN_EXCLUDE_APPS = []
 # ================================================= #
 # 应用名称: 用于「注册验证 / 找回密码」等系统邮件文案; 前端 logo/名称见 web/.env
 APP_NAME = 'Hongkong HK'
+
+# ================================================= #
+# *************** AI Key 池加密 ****************** #
+# ================================================= #
+# 用于加密数据库中渠道/平台的 AI API Key（Fernet key）。
+# 生成: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# 未配置时会回退用 SECRET_KEY 派生（仅开发可用；生产务必显式配置且不要更换）。
+AI_KEY_ENCRYPTION_KEY = ''
+# Key 轮换策略: lru（默认，最久未用优先） / random / highest_credit
+AI_KEY_STRATEGY = 'lru'
+# 余额自动刷新间隔（秒），列表/额度接口按需刷新
+AI_KEY_BALANCE_TTL = 900
+# 渠道未配置非 QVeris Key（DeepSeek/视觉/RAG）时是否回退平台 Key。
+# True=平滑过渡（默认）；False=直接拒绝，额度隔离最彻底。可在超管前端切换（DB 优先）。
+AI_KEY_FALLBACK_TO_GLOBAL = True

@@ -17,6 +17,9 @@ from typing import Any
 
 from openai import OpenAI
 
+from dvadmin.aikeys import resolver
+from dvadmin.aikeys.context import get_current_tenant_id
+
 from .config import settings
 from .locator import normalize
 
@@ -379,17 +382,20 @@ def _product_catalog() -> str:
     return "\n".join(lines) if lines else "  (no products configured)"
 
 
-def _client() -> OpenAI:
-    if not settings.DEEPSEEK_API_KEY:
-        raise CaseError("缺少 DEEPSEEK_API_KEY（.env）")
-    return OpenAI(api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_BASE)
+def _client() -> tuple[OpenAI, str]:
+    cred = resolver.get_single(
+        get_current_tenant_id(), "deepseek", require=True, use_context=False
+    )
+    if cred is None:
+        raise CaseError("缺少 DEEPSEEK_API_KEY（渠道或平台）")
+    return OpenAI(api_key=cred.api_key, base_url=cred.base_url), cred.model
 
 
 def extract_fields(text: str) -> dict[str, Any]:
     """Ask DeepSeek to extract the raw fields. Returns a dict (may be partial)."""
-    client = _client()
+    client, model = _client()
     resp = client.chat.completions.create(
-        model=settings.DEEPSEEK_MODEL,
+        model=model or settings.DEEPSEEK_MODEL,
         temperature=0,
         messages=[
             {"role": "system", "content": _SYSTEM.format(product_catalog=_product_catalog())},

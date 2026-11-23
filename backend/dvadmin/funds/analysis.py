@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 from datetime import datetime
 from html import escape
@@ -18,7 +17,10 @@ from pathlib import Path
 import markdown as _md
 from django.conf import settings
 
-from . import pb, prompts
+from dvadmin.aikeys import resolver as aikey_resolver
+from dvadmin.aikeys.models import PROVIDER_QVERIS
+
+from . import prompts
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +46,11 @@ def _opt(name, default=None):
     return getattr(settings, name, None) or default
 
 
-def qveris_analyze(fund: dict, holdings: list[dict]) -> str:
-    """Run the QVeris agent for one fund; returns the analysis markdown text."""
+def qveris_analyze(fund: dict, holdings: list[dict], tenant_id=None) -> str:
+    """Run the QVeris agent for one fund; returns the analysis markdown text.
+
+    ``tenant_id`` 决定使用哪个 Key 池：有值用渠道池，None 用平台池。
+    """
     pos = int(fund["rank"]) - 1
     today = datetime.now().strftime("%Y-%m-%d")
     price_date = fund.get("priceDateStr") or "(未知)"
@@ -59,40 +64,98 @@ def qveris_analyze(fund: dict, holdings: list[dict]) -> str:
     )
 
     return qveris_run(info, prompts.get_prompt("fund_analysis.system", QVERIS_PROMPT),
-                      system_prompt=prompts.get_prompt("fund_analysis.live_data", LIVE_DATA_SYSTEM_PROMPT))
+                      system_prompt=prompts.get_prompt("fund_analysis.live_data", LIVE_DATA_SYSTEM_PROMPT),
+                      tenant_id=tenant_id)
 
 
 def qveris_run(info: str, prompt: str, system_prompt: str | None = None,
-               model: str | None = None, temperature: float = 0.7) -> str:
+               model: str | None = None, temperature: float = 0.7, tenant_id=None) -> str:
     """Generic QVeris agent call: `prompt + info` -> analysis markdown.
 
-    Reused by fund analysis and the document/image analyzer.
+    QVeris Key 按 ``tenant_id`` 从 DB 池解析（渠道池 / 平台池），失败自动换下一个；
+    推理用的 DeepSeek Key 仍取全局配置，但显式传给 OpenAIProvider，避免修改进程环境变量。
     """
     from qveris import Agent, Message, QverisConfig
     from qveris.config import AgentConfig
+    from qveris.errors import QverisApiError, QverisCredentialError
+    from qveris.llm.openai.config import OpenAIConfig
     from qveris.llm.openai.provider import OpenAIProvider
 
-    os.environ.setdefault("OPENAI_API_KEY", _opt("DEEPSEEK_API_KEY", "") or "")
-    os.environ.setdefault("OPENAI_BASE_URL", _opt("DEEPSEEK_BASE", "") or "")
+    # 推理 LLM 也按 tenant 解析：渠道用自己的 DeepSeek，全局任务/严格模式走平台。
+    llm_cred = aikey_resolver.get_single(
+        tenant_id, "deepseek", require=True, use_context=False
+    )
+    if llm_cred is None:
+        raise RuntimeError("未配置可用的 DeepSeek Key")
+    # OpenAIConfig 的字段使用 validation_alias（OPENAI_API_KEY），必须用别名传参；
+    # 传 api_key=... 会被 pydantic 忽略，导致 "Missing credentials"。
+    llm_cfg = OpenAIConfig(
+        OPENAI_API_KEY=llm_cred.api_key,
+        OPENAI_BASE_URL=llm_cred.base_url,
+    )
 
-    api_key = pb.get_qveris_api_key()
-    if not api_key:
-        raise RuntimeError("没有可用的 QVeris key（PB qveris_keys / QVERIS_API_KEY）")
-
-    qc = QverisConfig(api_key=api_key)
     ac = AgentConfig(
-        model=model or _opt("DEEPSEEK_MODEL", "deepseek-chat"),
+        model=model or llm_cred.model or _opt("DEEPSEEK_MODEL", "deepseek-chat"),
         temperature=temperature,
         additional_system_prompt=LIVE_DATA_SYSTEM_PROMPT if system_prompt is None else system_prompt,
     )
 
-    async def _run() -> str:
-        async with Agent(config=qc, agent_config=ac, llm_provider=OpenAIProvider()) as agent:
-            return await agent.run_to_completion(
-                [Message(role="user", content=f"{prompt}\n\n资料内容：\n{info}")]
-            )
+    rows = aikey_resolver.candidates(tenant_id, PROVIDER_QVERIS)
+    if not rows:
+        raise aikey_resolver.NoAvailableKey(
+            aikey_resolver.empty_message(tenant_id, PROVIDER_QVERIS)
+        )
 
-    return _strip_preamble(asyncio.run(_run()))
+    last_exc: Exception | None = None
+    tried: set[int] = set()
+    for row in rows:
+        if row.id in tried:
+            continue
+        tried.add(row.id)
+        cred = aikey_resolver.to_credential(row)
+        aikey_resolver.mark_used(row.id)
+
+        qc_kwargs = {"api_key": cred.api_key}
+        if cred.base_url:
+            qc_kwargs["base_url"] = cred.base_url
+        qc = QverisConfig(**qc_kwargs)
+
+        async def _run() -> str:
+            provider = OpenAIProvider(llm_cfg)
+            try:
+                async with Agent(config=qc, agent_config=ac, llm_provider=provider) as agent:
+                    return await agent.run_to_completion(
+                        [Message(role="user", content=f"{prompt}\n\n资料内容：\n{info}")]
+                    )
+            finally:
+                await provider.close()
+
+        try:
+            return _strip_preamble(asyncio.run(_run()))
+        except QverisApiError as exc:
+            last_exc = exc
+            status = getattr(exc, "status", None)
+            aikey_resolver.mark_failed(
+                row.id, status=status, error=f"{type(exc).__name__}: {exc}"
+            )
+            logger.warning("[QVERIS] key %s failed (status=%s), trying next", row.id, status)
+            continue
+        except QverisCredentialError as exc:
+            last_exc = exc
+            aikey_resolver.mark_failed(
+                row.id, status=401, error=f"{type(exc).__name__}: {exc}"
+            )
+            logger.warning("[QVERIS] key %s credential failed, trying next", row.id)
+            continue
+        except Exception as exc:  # noqa: BLE001
+            # 非 Key 问题（如推理 LLM 未配置、网络等）不应怪到 QVeris Key 上，
+            # 也不应把整池 Key 都试一遍；直接抛出。
+            logger.exception("[QVERIS] non-key error: %s", exc)
+            raise
+
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("QVeris 调用失败：没有可用 Key")
 
 
 def _strip_preamble(text: str) -> str:

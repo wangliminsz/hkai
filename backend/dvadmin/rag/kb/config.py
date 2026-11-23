@@ -82,37 +82,34 @@ def save_doc_ids(product_id: str, ids: dict[str, str]) -> None:
         json.dump(ids, f, ensure_ascii=False, indent=2)
 
 
-def llm_credentials() -> dict:
-    api_key = (
-        _opt("PI_API_KEY")
-        or _opt("OPENAI_API_KEY")
-        or _opt("DEEPSEEK_API_KEY")
-    )
-    base_url = (
-        _opt("PI_BASE_URL")
-        or _opt("OPENAI_BASE_URL")
-        or _opt("DEEPSEEK_BASE")
-    )
-    return {"api_key": api_key, "base_url": base_url}
+def _pageindex_credential(tenant_id=None):
+    from dvadmin.aikeys import resolver
+
+    cred = resolver.get_single(tenant_id, "pageindex", require=True, use_context=False)
+    if cred is None:
+        raise RuntimeError("RAG 知识库未配置可用的 Key（渠道或平台）")
+    return cred
 
 
-def chat_model() -> str:
-    return _opt("PI_CHAT_MODEL", "openai/deepseek-flash")
+def llm_credentials(tenant_id=None) -> dict:
+    cred = _pageindex_credential(tenant_id)
+    return {"api_key": cred.api_key, "base_url": cred.base_url}
 
 
-def build_client():
+def chat_model(tenant_id=None) -> str:
+    cred = _pageindex_credential(tenant_id)
+    return cred.model or _opt("PI_CHAT_MODEL", "openai/deepseek-flash")
+
+
+def build_client(tenant_id=None):
     from pageindex import PageIndexClient
 
-    index_model = _opt("PI_INDEX_MODEL", "openai/deepseek-flash")
+    cred = _pageindex_credential(tenant_id)
     storage_path = _opt("PI_STORAGE_PATH") or str(ROOT / ".pageindex")
+    index_model = (cred.extra or {}).get("index_model") or cred.model or _opt("PI_INDEX_MODEL", "openai/deepseek-flash")
 
-    creds = llm_credentials()
-    backend = {k: v for k, v in creds.items() if v}
-
-    index_cfg = {"model": index_model, "storage_path": storage_path}
-    chat_cfg = {"model": chat_model()}
-    if backend:
-        index_cfg["backend"] = backend
-        chat_cfg["backend"] = backend
+    backend = {"api_key": cred.api_key, "base_url": cred.base_url}
+    index_cfg = {"model": index_model, "storage_path": storage_path, "backend": backend}
+    chat_cfg = {"model": cred.model or _opt("PI_CHAT_MODEL", "openai/deepseek-flash"), "backend": backend}
 
     return PageIndexClient(index=index_cfg, chat=chat_cfg)

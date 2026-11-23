@@ -44,14 +44,19 @@ def _pdf_text(path: Path, pages: int = 8, chars: int = 7000) -> str:
         return ""
 
 
-def _llm_json(prompt: str, max_tokens: int = 8000) -> dict:
+def _llm_json(prompt: str, max_tokens: int = 8000, tenant_id=None) -> dict:
     import litellm
 
-    model = _opt("DEEPSEEK_MODEL", "deepseek-flash") or "deepseek-flash"
+    from dvadmin.aikeys import resolver
+
+    cred = resolver.get_single(tenant_id, "deepseek", require=True, use_context=False)
+    if cred is None:  # require=True 时理论上不会发生
+        raise RuntimeError("未配置可用的 DeepSeek Key")
+    model = cred.model or _opt("DEEPSEEK_MODEL", "deepseek-flash") or "deepseek-flash"
     if not model.startswith("openai/"):
         model = "openai/" + model
-    base = _opt("DEEPSEEK_BASE", "https://api.deepseek.com")
-    api_key = _opt("DEEPSEEK_API_KEY")
+    base = cred.base_url
+    api_key = cred.api_key
 
     messages = [
         {"role": "system", "content": "你是保险计划书卡片模板工程师。只输出 JSON。"},
@@ -83,10 +88,11 @@ def _llm_json(prompt: str, max_tokens: int = 8000) -> dict:
     raise last or RuntimeError("AI 生成失败")
 
 
-def _proposal_markdown(pdf_path: Path) -> dict:
+def _proposal_markdown(pdf_path: Path, tenant_id=None) -> dict:
     work = Path(tempfile.mkdtemp(prefix="card_ai_"))
     try:
-        pipeline._run(["extract_proposal.py", str(pdf_path), "--output-dir", str(work)], timeout=180)
+        pipeline._run(["extract_proposal.py", str(pdf_path), "--output-dir", str(work)],
+                      timeout=180, tenant_id=tenant_id)
         out = {}
         for key, suffix in (("first", "首页信息"), ("years", "所有保单年"), ("scenario", "不同投资回报")):
             for f in work.glob(f"*-{suffix}.md"):
@@ -170,7 +176,7 @@ def _merge_template(base: dict, merges: dict, pid: str) -> dict:
 
 
 def generate_draft(pid: str, base_pid: str, proposal_pdf: Path, brochure_pdf: Path | None = None,
-                   company_code: str | None = None) -> dict:
+                   company_code: str | None = None, tenant_id=None) -> dict:
     """生成并落盘草稿到 products/<pid>/ (含 _draft.json)。返回摘要。"""
     available = pipeline.list_products(include_drafts=True)
     if pid in available:
@@ -181,7 +187,7 @@ def generate_draft(pid: str, base_pid: str, proposal_pdf: Path, brochure_pdf: Pa
     base_tpl = json.loads((paths.products_dir() / base_pid / "template.json").read_text(encoding="utf-8"))
     base_parser = json.loads((paths.products_dir() / base_pid / "parser.json").read_text(encoding="utf-8"))
 
-    md = _proposal_markdown(proposal_pdf)
+    md = _proposal_markdown(proposal_pdf, tenant_id=tenant_id)
     brochure = _pdf_text(brochure_pdf) if brochure_pdf else ""
 
     prompt = _PROMPT.format(
@@ -204,7 +210,7 @@ def generate_draft(pid: str, base_pid: str, proposal_pdf: Path, brochure_pdf: Pa
         jsonschema.validate(template, _schema("template.schema.json"))
         return parser, template, merges
 
-    result = _llm_json(prompt)
+    result = _llm_json(prompt, tenant_id=tenant_id)
     try:
         parser, template, tpl_merges = build(result)
     except jsonschema.ValidationError as exc:
@@ -213,7 +219,7 @@ def generate_draft(pid: str, base_pid: str, proposal_pdf: Path, brochure_pdf: Pa
             f"\n\n注意：上一次输出不符合 schema：{exc.message}。"
             "请修正后重新输出完整 JSON（严格按 schema，plan_row 必须是对象或 null）。"
         )
-        result = _llm_json(fix_prompt, max_tokens=6000)
+        result = _llm_json(fix_prompt, max_tokens=6000, tenant_id=tenant_id)
         parser, template, tpl_merges = build(result)
     parser["product"] = pid
 

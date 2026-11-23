@@ -151,6 +151,7 @@ def chat(request):
             product_id=data.get("product_id"),
             history=data.get("history"),
             product_ids=data.get("product_ids"),
+            tenant_id=getattr(request.user, "tenant_id", None),
         )
     except ProductSelectionRequired as exc:
         return SuccessResponse(data={
@@ -170,7 +171,11 @@ def chat(request):
 def explain(request):
     data = request.data or {}
     try:
-        text = kb_explain.explain_plain(data.get("term") or "", data.get("context"))
+        text = kb_explain.explain_plain(
+            data.get("term") or "",
+            data.get("context"),
+            tenant_id=getattr(request.user, "tenant_id", None),
+        )
     except Exception as exc:  # noqa: BLE001
         logger.exception("[RAG] explain failed")
         return ErrorResponse(msg=str(exc))
@@ -185,13 +190,15 @@ def chat_stream(request):
     product_id = data.get("product_id")
     product_ids = data.get("product_ids")
     history = data.get("history")
+    tenant_id = getattr(request.user, "tenant_id", None)
 
     def gen():
         try:
             yield _sse("start", {})
             try:
                 client, pids, chunks = qa.stream(
-                    question, product_id, history, product_ids=product_ids
+                    question, product_id, history,
+                    product_ids=product_ids, tenant_id=tenant_id,
                 )
             except ProductSelectionRequired as exc:
                 yield _sse(
@@ -281,7 +288,7 @@ def admin_products(request):
         return ErrorResponse(msg=str(exc))
 
     services.write_status(product_id, "queued", "已排队，等待建立索引…")
-    ingest_product.delay(product_id, False)
+    ingest_product.delay(product_id, False, getattr(request.user, "tenant_id", None))
     logger.info("[RAG] 新建产品并入队建索引 %s", product_id)
     return SuccessResponse(
         data={"product_id": product_id},
@@ -301,6 +308,6 @@ def admin_ingest(request):
         return ErrorResponse(msg=_("Product not found"))
 
     services.write_status(product_id, "queued", "已排队，等待建立索引…")
-    ingest_product.delay(product_id, force)
+    ingest_product.delay(product_id, force, getattr(request.user, "tenant_id", None))
     logger.info("[RAG] 手动建索引入队 %s force=%s", product_id, force)
     return SuccessResponse(data={"product_id": product_id}, msg=_("Indexing queued"))

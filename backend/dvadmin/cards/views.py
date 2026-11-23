@@ -162,7 +162,8 @@ def jobs(request):
         cover_path = str(cpath)
 
     job = CardJob.objects.create(
-        user=request.user, product=product,
+        user=request.user, tenant_id=getattr(request.user, "tenant_id", None),
+        product=product,
         plan_name=str(request.data.get("plan_name") or ""),
         pdf_path=str(pdf_path), cover_path=cover_path,
         theme=str(request.data.get("theme") or "yf-cream"),
@@ -401,7 +402,8 @@ def admin_ai_draft(request):
             bp = tmp / (Path(brochure.name or "brochure.pdf").name)
             _save_upload(brochure, bp)
         company_code = str(request.data.get("company") or "").strip() or None
-        info = ai_draft.generate_draft(pid, base_pid, pp, bp, company_code)
+        info = ai_draft.generate_draft(pid, base_pid, pp, bp, company_code,
+                                       tenant_id=getattr(request.user, "tenant_id", None))
         return SuccessResponse(data=info, msg=_("草稿已生成，请调整并验证后发布"))
     except Exception as exc:  # noqa: BLE001
         logger.exception("[CARDS] ai draft failed")

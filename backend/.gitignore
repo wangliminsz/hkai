@@ -90,6 +90,11 @@ ENV/
 .DS_Store
 **/migrations/*.py
 !**/migrations/__init__.py
+# 本次新增功能相关迁移需要进 git（其他 app 仍按项目惯例忽略）
+!dvadmin/aikeys/migrations/*.py
+!dvadmin/docai/migrations/*.py
+!dvadmin/cards/migrations/*.py
+!dvadmin/proposal/migrations/*.py
 *.pyc
 conf/*
 !conf/env.example.py

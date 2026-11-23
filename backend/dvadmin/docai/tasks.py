@@ -36,7 +36,7 @@ def run_docai(job_id: int):
         if job.kind == "pdf":
             content = services.extract_pdf_text(data)
             try:
-                holdings = fund_holdings.extract_top_holdings(data) or []
+                holdings = fund_holdings.extract_top_holdings(data, tenant_id=job.tenant_id) or []
             except Exception as exc:  # noqa: BLE001 - holdings are optional
                 logger.warning("[DOCAI] holdings extract failed: %s", exc)
             if content:
@@ -47,17 +47,24 @@ def run_docai(job_id: int):
             else:
                 raise RuntimeError("未能从 PDF 中提取到文本或持仓内容")
         else:
-            content = services.extract_image_markdown(data)
+            content = services.extract_image_markdown(data, tenant_id=job.tenant_id)
             info = content
 
         prompt = (job.prompt or "").strip() or prompts.get_prompt("docai.prompt", services.DEFAULT_PROMPT)
         DocAiJob.objects.filter(id=job_id).update(step="QVeris AI 分析中…", content_text=content[:60000],
                                                   prompt=prompt)
-        analysis = qveris_run(info, prompt, system_prompt="")
+        analysis = qveris_run(info, prompt, system_prompt="", tenant_id=job.tenant_id)
 
-        DocAiJob.objects.filter(id=job_id).update(step="生成报告并发送邮件…", analysis=analysis)
+        DocAiJob.objects.filter(id=job_id).update(step="生成报告与 PDF 并发送邮件…", analysis=analysis)
         html = services.render_report_html(job.filename, job.kind, analysis, content, holdings)
-        services.send_report_email(job.email, job.filename, html)
+        pdf_bytes = b""
+        try:
+            pdf_bytes = services.render_report_pdf(html)
+        except Exception as exc:  # noqa: BLE001 - email should still go out
+            logger.warning("[DOCAI] PDF render failed: %s", exc)
+        stem = re.sub(r'[\\/:*?"<>|]+', "_", Path(job.filename or "report").stem).strip(" .")[:80] or "report"
+        services.send_report_email(job.email, job.filename, html,
+                                   pdf_bytes=pdf_bytes, pdf_name=f"{stem}-AI分析报告.pdf")
 
         DocAiJob.objects.filter(id=job_id).update(
             status="succeeded", step="done", report_html=html,

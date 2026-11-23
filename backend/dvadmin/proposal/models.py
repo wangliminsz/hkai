@@ -53,6 +53,11 @@ class ProposalJob(CoreModel):
         to=settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         db_constraint=False, related_name="proposal_jobs", verbose_name=_("创建用户"),
     )
+    tenant = models.ForeignKey(
+        to="tenant.Tenant", on_delete=models.SET_NULL, null=True, blank=True,
+        db_constraint=False, related_name="proposal_jobs", verbose_name=_("归属渠道"),
+        help_text="任务创建时的渠道；为空表示平台/内部任务",
+    )
     portal = models.ForeignKey(
         to="proposal.InsurerPortal", on_delete=models.SET_NULL, null=True, blank=True,
         db_constraint=False, related_name="jobs", verbose_name=_("保险公司门户"),

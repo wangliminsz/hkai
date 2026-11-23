@@ -14,7 +14,7 @@ PLAIN_SYSTEM = (
 )
 
 
-def explain_plain(term: str, context: str | None = None) -> str:
+def explain_plain(term: str, context: str | None = None, tenant_id=None) -> str:
     term = (term or "").strip()
     if not term:
         raise ValueError("term 不能為空")
@@ -25,13 +25,13 @@ def explain_plain(term: str, context: str | None = None) -> str:
 
     import litellm
 
-    creds = llm_credentials()
+    creds = llm_credentials(tenant_id)
     messages = [
         {"role": "system", "content": PLAIN_SYSTEM},
         {"role": "user", "content": user},
     ]
     base = {
-        "model": chat_model(),
+        "model": chat_model(tenant_id),
         "messages": messages,
         "api_key": creds.get("api_key"),
         "base_url": creds.get("base_url"),

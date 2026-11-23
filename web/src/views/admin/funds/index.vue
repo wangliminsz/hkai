@@ -82,36 +82,6 @@
 			</el-table>
 		</section>
 
-		<section class="card">
-			<div class="row-between">
-				<strong>Qveris API 额度</strong>
-				<div class="bar-right">
-					<span class="muted" v-if="qveris">共 {{ qveris.count }} 个 key · 合计 {{ formatCredit(qveris.total) }} · 最低 {{ formatCredit(qveris.lowest) }}</span>
-					<el-button size="small" :loading="qverisLoading" @click="loadQveris(true)">
-						<el-icon style="margin-right:4px"><ele-Refresh /></el-icon>刷新
-					</el-button>
-				</div>
-			</div>
-			<el-table :data="qveris?.items || []" size="small" class="hist">
-				<el-table-column prop="login_name" label="登录名" min-width="150" />
-				<el-table-column prop="key_env" label="Env 变量" min-width="190" />
-				<el-table-column prop="masked_key" label="Key（脱敏）" min-width="150" />
-				<el-table-column label="剩余额度" width="130" align="right">
-					<template #default="{ row }">
-						<span class="credit-num" :class="{ danger: row.remain_credit < 50, warn: row.remain_credit < 150 }">
-							{{ formatCredit(row.remain_credit) }}
-						</span>
-					</template>
-				</el-table-column>
-				<el-table-column label="状态" width="100" align="center">
-					<template #default="{ row }">
-						<el-tag :type="creditTag(row.remain_credit)" size="small" effect="dark">{{ creditLabel(row.remain_credit) }}</el-tag>
-					</template>
-				</el-table-column>
-			</el-table>
-			<div class="muted" style="margin-top:8px" v-if="qveris">更新于 {{ qveris.fetched_at }}（缓存 5 分钟；点「刷新」强制更新）</div>
-		</section>
-
 		<el-dialog v-model="detailVisible" :title="detail ? `推送 #${detail.id}` : '推送详情'" width="720px" destroy-on-close>
 			<div v-if="detail">
 				<div class="muted" style="margin-bottom:8px">
@@ -129,7 +99,7 @@
 <script setup lang="ts" name="adminFunds">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getFundSchedule, listFundBroadcasts, createFundBroadcast, getFundBroadcast, getQverisCredits,
+import { getFundSchedule, listFundBroadcasts, createFundBroadcast, getFundBroadcast,
 	createFundAnalysis, listFundAnalysis } from './api';
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -141,30 +111,13 @@ const broadcasting = ref(false);
 const analyzing = ref(false);
 const detailVisible = ref(false);
 const detail = ref<any>(null);
-const qveris = ref<any>(null);
-const qverisLoading = ref(false);
 let timer: any = null;
 
 const tagType = (s: string) => ({ succeeded: 'success', running: 'primary', queued: 'info', failed: 'danger' } as any)[s] || 'info';
-const formatCredit = (n: any) => (n === null || n === undefined ? '-' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }));
-const creditTag = (n: number) => (n < 50 ? 'danger' : n < 150 ? 'warning' : 'success');
-const creditLabel = (n: number) => (n < 50 ? '紧张' : n < 150 ? '偏低' : '正常');
 const todayLabel = computed(() => {
 	if (!schedule.value) return '今日预览';
 	return `${schedule.value.weekday_name || WEEKDAYS[schedule.value.weekday]} 推送预览`;
 });
-
-const loadQveris = async (refresh = false) => {
-	qverisLoading.value = true;
-	try {
-		const res: any = await getQverisCredits(refresh);
-		if (res.code === 2000) qveris.value = res.data;
-	} catch (e: any) {
-		ElMessage.error(e?.message || '读取 Qveris 额度失败');
-	} finally {
-		qverisLoading.value = false;
-	}
-};
 
 const load = async () => {
 	loading.value = true;
@@ -178,7 +131,6 @@ const load = async () => {
 	} finally {
 		loading.value = false;
 	}
-	loadQveris();
 };
 
 const poll = (id: number) => {
@@ -276,6 +228,7 @@ onUnmounted(() => {
 	.credit-num { font-variant-numeric: tabular-nums; }
 	.credit-num.warn { color: #e6a23c; }
 	.credit-num.danger { color: #f56c6c; font-weight: 600; }
+
 	.card {
 		background: var(--cn-card, #1a1a1c); border: 1px solid var(--cn-border, #2a2a2a);
 		border-radius: 12px; padding: 16px 18px; margin-bottom: 14px;

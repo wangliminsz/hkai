@@ -111,6 +111,7 @@ urlpatterns = (
             path("api/cards/", include("dvadmin.cards.urls")),
             path("api/funds/", include("dvadmin.funds.urls")),
             path("api/docai/", include("dvadmin.docai.urls")),
+            path("api/aikeys/", include("dvadmin.aikeys.urls")),
             path("webhook/line/", webhook_view, name="line_webhook"),
             path("webhook/line", webhook_view),  # 兼容无尾斜杠(LINE webhook 校验)
             path("api/login/", LoginView.as_view(), name="token_obtain_pair"),

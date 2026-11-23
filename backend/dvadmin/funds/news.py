@@ -107,13 +107,15 @@ _SUMMARY_PROMPT = """你是资深金融资讯编辑。根据下面的「今日�
 只输出 JSON，格式：
 {{
   "title": "一句话定调（≤20字，如：AI 杠杆牛市信用验证期）",
-  "summary": "飞书 lark_md 纯文本，≤700字。必须用以下结构，段与段之间空一行：\\n【美股】…\\n\\n【A股】…\\n\\n【三件事】①…②…③…\\n\\n【一句话】…"
+  "summary": "飞书 lark_md 纯文本，≤800字。必须用以下结构，段与段之间空一行：\\n【美股】…\\n\\n【A股】…\\n\\n【香港保险】…\\n\\n【三件事】①…②…③…\\n\\n【一句话】…"
 }}
 
 硬性要求：
 - 只用 JSON 中出现的事实与数字，绝不编造；数字精确（百分比/金额）。
 - 简体中文，客观中性，不写买入/卖出建议。
 - 每个板块 1-3 句，按重要性取舍；某板块无素材就写「今日暂无显著信号」。
+- 【香港保险】优先使用来源为「香港保监局」的监管动态、行业统计、新授权、纪律处分、咨询文件等；
+  若素材较多，挑最重要 1-2 条，不要罗列。
 - summary 里不要出现 markdown 标题符号(#)，只用【】分块。
 
 === 今日新闻 JSON ===
@@ -126,12 +128,14 @@ _BRIEF_MD_PROMPT = """你是资深金融资讯编辑。根据下面的「今日�
 【markdown 要求】
 - 必须以 `# 今日金融资讯 · {date}` 开头，且只包含以下章节（顺序固定）：
   `> **一句话定调**:…` → `---` → `## 一、隔夜美股与全球宏观` → `## 二、A股 / 港股 / 国内财经`
-  → `## 三、加密与另类资产 / 其他` → `---` → `## 📌 关键数字`(3-5 行 markdown 表格)
+  → `## 三、香港保险动态` → `## 四、加密与另类资产 / 其他` → `---` → `## 📌 关键数字`(3-5 行 markdown 表格)
   → `## ⚠️ 风险点` → `## 🎯 今日 Takeaway`(≤80 字引用块)。
 - 每个板块 ≤5 条要点，按重要性排序；每条要点后**至少一条**来源子项，格式为 4 个空格缩进的
   `    - 来源: [来源名](url)`；同一条要点若有多个来源，则每个来源各占一行。
-- 来源必须带 markdown 链接，url 一律取自 JSON，不要省略；正文 800-1500 字。
+- 来源必须带 markdown 链接，url 一律取自 JSON，不要省略；正文 900-1700 字。
 - 只用 JSON 中出现的事实与数字，绝不编造；简体中文，客观中性，不写买卖建议。
+- 「香港保险动态」优先使用来源为「香港保监局」的监管动态、行业统计、新授权、纪律处分、咨询文件等；
+  无素材时该章节写「今日无重大消息」。
 - 某板块无素材写「今日无重大消息」；不要用 ``` 代码围栏。
 
 === 今日新闻 JSON ===
@@ -145,12 +149,14 @@ _BRIEF_MD_PLAIN_PROMPT = """你是资深金融资讯编辑。根据下面的「�
 【markdown 要求】
 - 必须以 `# 今日金融资讯 · {date}` 开头，且只包含以下章节（顺序固定）：
   `> **一句话定调**:…` → `---` → `## 一、隔夜美股与全球宏观` → `## 二、A股 / 港股 / 国内财经`
-  → `## 三、加密与另类资产 / 其他` → `---` → `## 📌 关键数字`(3-5 行 markdown 表格)
+  → `## 三、香港保险动态` → `## 四、加密与另类资产 / 其他` → `---` → `## 📌 关键数字`(3-5 行 markdown 表格)
   → `## ⚠️ 风险点` → `## 🎯 今日 Takeaway`(≤80 字引用块)。
 - 每个板块 ≤5 条要点，按重要性排序；每条要点后**至少一条**来源子项，格式为 4 个空格缩进的
   `    - 来源: [来源名](url)`；同一条要点若有多个来源，则每个来源各占一行。
-- 来源必须带 markdown 链接，url 一律取自 JSON，不要省略；正文 800-1500 字。
+- 来源必须带 markdown 链接，url 一律取自 JSON，不要省略；正文 900-1700 字。
 - 只用 JSON 中出现的事实与数字，绝不编造；简体中文，客观中性，不写买卖建议。
+- 「香港保险动态」优先使用来源为「香港保监局」的监管动态、行业统计、新授权、纪律处分、咨询文件等；
+  无素材时该章节写「今日无重大消息」。
 - 某板块无素材写「今日无重大消息」。
 
 === 今日新闻 JSON ===
@@ -158,14 +164,24 @@ _BRIEF_MD_PLAIN_PROMPT = """你是资深金融资讯编辑。根据下面的「�
 """
 
 
+def _llm_cred():
+    from dvadmin.aikeys import resolver
+
+    cred = resolver.get_single(None, "deepseek", require=False, use_context=False)
+    if cred is None:
+        raise RuntimeError("未配置可用的 DeepSeek Key")
+    return cred
+
+
 def _llm_json(prompt: str, max_tokens: int = 1600) -> dict:
     import litellm
 
-    model = _opt("DEEPSEEK_MODEL", "deepseek-flash") or "deepseek-flash"
+    cred = _llm_cred()
+    model = cred.model or _opt("DEEPSEEK_MODEL", "deepseek-flash") or "deepseek-flash"
     if not model.startswith("openai/"):
         model = "openai/" + model
-    base = _opt("DEEPSEEK_BASE", "https://api.deepseek.com")
-    api_key = _opt("DEEPSEEK_API_KEY")
+    base = cred.base_url or _opt("DEEPSEEK_BASE", "https://api.deepseek.com")
+    api_key = cred.api_key
 
     last = None
     for attempt in range(2):
@@ -205,11 +221,12 @@ def _llm_text(prompt: str, max_tokens: int = 6000) -> str:
     """纯文本/markdown 输出(不要求 JSON)，用于 JSON 解析失败时的兜底。"""
     import litellm
 
-    model = _opt("DEEPSEEK_MODEL", "deepseek-flash") or "deepseek-flash"
+    cred = _llm_cred()
+    model = cred.model or _opt("DEEPSEEK_MODEL", "deepseek-flash") or "deepseek-flash"
     if not model.startswith("openai/"):
         model = "openai/" + model
-    base = _opt("DEEPSEEK_BASE", "https://api.deepseek.com")
-    api_key = _opt("DEEPSEEK_API_KEY")
+    base = cred.base_url or _opt("DEEPSEEK_BASE", "https://api.deepseek.com")
+    api_key = cred.api_key
 
     last = None
     for attempt in range(2):

@@ -39,6 +39,11 @@ class DocAiJob(CoreModel):
         to=settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         db_constraint=False, related_name="docai_jobs", verbose_name=_("用户"),
     )
+    tenant = models.ForeignKey(
+        to="tenant.Tenant", on_delete=models.SET_NULL, null=True, blank=True,
+        db_constraint=False, related_name="docai_jobs", verbose_name=_("归属渠道"),
+        help_text="任务创建时的渠道；为空表示平台/内部任务",
+    )
     kind = models.CharField(max_length=8, choices=KIND_CHOICES, default="pdf", verbose_name=_("类型"))
     filename = models.CharField(max_length=255, blank=True, default="", verbose_name=_("文件名"))
     file_path = models.CharField(max_length=500, blank=True, default="", verbose_name=_("文件路径"))

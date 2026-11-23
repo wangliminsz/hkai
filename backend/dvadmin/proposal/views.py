@@ -200,7 +200,8 @@ def jobs(request):
         return ErrorResponse(msg=_("请选择保险公司"))
 
     job = ProposalJob.objects.create(
-        user=request.user, portal=portal, text=text, create_pdf=create_pdf, status="queued")
+        user=request.user, tenant_id=getattr(request.user, "tenant_id", None),
+        portal=portal, text=text, create_pdf=create_pdf, status="queued")
     run_proposal_task.apply_async(args=[job.id], queue="proposal")
     logger.info("[PROPOSAL] job %s queued portal=%s user=%s", job.id, portal.code, request.user.username)
     return SuccessResponse(data=_serialize_job(job), msg=_("已提交，正在生成"))

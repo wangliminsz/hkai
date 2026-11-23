@@ -11,6 +11,8 @@ from celery import shared_task
 from django.db import close_old_connections
 from django.utils import timezone
 
+from dvadmin.aikeys.context import reset_current_tenant_id, set_current_tenant_id
+
 from . import paths, runner
 from .engine.portal import NeedsHumanError
 from .models import ProposalJob
@@ -86,7 +88,11 @@ def run_proposal_task(job_id: int):
             log_q.put(line)
 
     try:
-        out = runner.run_proposal(text, create_pdf, portal_creds, log)
+        token = set_current_tenant_id(job.tenant_id)
+        try:
+            out = runner.run_proposal(text, create_pdf, portal_creds, log)
+        finally:
+            reset_current_tenant_id(token)
         stop.set()
         log_q.put(None)
         flusher.join(timeout=15)

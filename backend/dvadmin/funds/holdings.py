@@ -37,11 +37,15 @@ def _opt(name, default=None):
     return getattr(settings, name, None) or default
 
 
-def _llm() -> tuple[str, str, str]:
-    base = _opt("DEEPSEEK_BASE", "https://api.deepseek.com")
-    model = _opt("DEEPSEEK_MODEL", "deepseek-chat")
-    key = _opt("DEEPSEEK_API_KEY", "")
-    return base.rstrip("/"), model, key
+def _llm(tenant_id=None) -> tuple[str, str, str]:
+    from dvadmin.aikeys import resolver
+
+    cred = resolver.get_single(tenant_id, "deepseek", require=False, use_context=False)
+    if cred is None:
+        return "", "", ""
+    base = cred.base_url or _opt("DEEPSEEK_BASE", "https://api.deepseek.com")
+    model = cred.model or _opt("DEEPSEEK_MODEL", "deepseek-chat")
+    return base.rstrip("/"), model, cred.api_key
 
 
 _PDF_HEADERS = {
@@ -65,10 +69,10 @@ def pdf_text(pdf_bytes: bytes, max_pages: int = 6) -> str:
         return "\n".join((p.extract_text() or "") for p in pages)
 
 
-def extract_top_holdings(pdf_bytes: bytes, max_rows: int | None = None) -> list[dict]:
+def extract_top_holdings(pdf_bytes: bytes, max_rows: int | None = None, tenant_id=None) -> list[dict]:
     """Return [{rank, name, weight_pct}]. Empty list on failure (analysis continues)."""
     max_rows = int(max_rows or _opt("FUND_HOLDINGS_MAX", 10) or 10)
-    ck = hashlib.sha256(pdf_bytes).hexdigest()
+    ck = f"{tenant_id or 0}:{hashlib.sha256(pdf_bytes).hexdigest()}"
     if ck in _cache:
         _cache.move_to_end(ck)
         return [dict(h) for h in _cache[ck]]
@@ -81,7 +85,7 @@ def extract_top_holdings(pdf_bytes: bytes, max_rows: int | None = None) -> list[
     if not text.strip():
         return []
 
-    base, model, key = _llm()
+    base, model, key = _llm(tenant_id)
     if not key:
         logger.warning("[HOLDINGS] no DEEPSEEK_API_KEY; skip extraction")
         return []

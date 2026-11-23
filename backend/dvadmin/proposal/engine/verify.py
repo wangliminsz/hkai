@@ -21,6 +21,9 @@ from pathlib import Path
 
 from openai import OpenAI
 
+from dvadmin.aikeys import resolver
+from dvadmin.aikeys.context import get_current_tenant_id
+
 from .config import settings
 
 
@@ -129,10 +132,13 @@ Rules:
 """
 
 
-def _client() -> OpenAI:
-    if not settings.VLLM_API_KEY:
-        raise RuntimeError("缺少 VLLM_API_KEY（.env）")
-    return OpenAI(api_key=settings.VLLM_API_KEY, base_url=settings.VLLM_BASE)
+def _client() -> tuple[OpenAI, str]:
+    cred = resolver.get_single(
+        get_current_tenant_id(), "vllm", require=True, use_context=False
+    )
+    if cred is None:
+        raise RuntimeError("缺少视觉模型 Key（渠道或平台）")
+    return OpenAI(api_key=cred.api_key, base_url=cred.base_url), cred.model
 
 
 def _b64(path: Path) -> str:
@@ -204,9 +210,9 @@ def _read_sum_insured(value) -> int | None:
 
 def extract_fields(image_path: Path) -> dict:
     """Ask the VL model to READ the fields (no judgement)."""
-    client = _client()
+    client, model = _client()
     resp = client.chat.completions.create(
-        model=settings.VLLM_MODEL,
+        model=model or settings.VLLM_MODEL,
         max_tokens=1024,
         temperature=0,
         messages=[{

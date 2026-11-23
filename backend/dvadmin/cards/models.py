@@ -20,6 +20,11 @@ class CardJob(CoreModel):
         to=settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         db_constraint=False, related_name="card_jobs", verbose_name=_("创建用户"),
     )
+    tenant = models.ForeignKey(
+        to="tenant.Tenant", on_delete=models.SET_NULL, null=True, blank=True,
+        db_constraint=False, related_name="card_jobs", verbose_name=_("归属渠道"),
+        help_text="任务创建时的渠道；为空表示平台/内部任务",
+    )
     product = models.CharField(max_length=64, verbose_name=_("产品"))
     plan_name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("计划名称"))
     pdf_path = models.CharField(max_length=512, blank=True, default="", verbose_name=_("PDF本地路径"))

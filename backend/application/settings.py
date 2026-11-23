@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "dvadmin.cards",
     "dvadmin.funds",
     "dvadmin.docai",
+    "dvadmin.aikeys",
 ]
 
 MIDDLEWARE = [

@@ -47,6 +47,7 @@ def run_card_job(job_id: int):
             cover_path=cover,
             on_log=log,
             on_progress=progress,
+            tenant_id=job.tenant_id,
         )
         log(f"渲染完成: {len(out['cards'])} 张")
 

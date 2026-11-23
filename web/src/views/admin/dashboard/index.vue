@@ -12,6 +12,65 @@
 			</div>
 		</div>
 
+		<!-- 快捷入口 -->
+		<div class="panel">
+			<div class="panel-title">快捷入口</div>
+			<div class="quick-grid">
+				<router-link v-for="q in quicks" :key="q.path" :to="q.path" class="quick-item">
+					<el-icon class="quick-icon"><component :is="q.icon" /></el-icon>
+					<div class="quick-body">
+						<div class="quick-title">{{ q.title }}</div>
+						<div v-if="q.desc" class="quick-desc">{{ q.desc }}</div>
+					</div>
+				</router-link>
+			</div>
+		</div>
+
+		<!-- AI Key（平台） -->
+		<div id="ai-key" class="panel ai-key-panel">
+			<div class="panel-title">AI Key（平台）</div>
+			<div class="bc-sub">
+				平台 Key 用于全局任务（新闻、全渠道基金分析、内部计划书等）和渠道未配置时的回退；
+				渠道自己的 Key 在渠道首页「AI Key」配置。
+			</div>
+
+			<div class="fallback-row">
+				<div>
+					<div class="fallback-title">渠道未配置 DeepSeek / 视觉 / RAG Key 时</div>
+					<div class="bc-sub">开启 = 回退平台 Key；关闭 = 直接拒绝（额度隔离最彻底）。</div>
+				</div>
+				<el-switch v-model="fallbackToGlobal" :loading="fallbackSaving" @change="saveFallback" />
+			</div>
+
+			<el-tabs v-model="aiTab" class="ai-tabs">
+				<el-tab-pane label="AI 模型" name="models">
+					<AiModelSettings scope="platform" title="平台 AI 模型 Key" />
+				</el-tab-pane>
+				<el-tab-pane label="QVeris Key 池" name="qveris">
+					<QverisKeyPool scope="platform" title="平台 QVeris Key 池（全局任务使用）" />
+				</el-tab-pane>
+			</el-tabs>
+
+			<el-collapse v-if="aiProviders.length" class="env-collapse">
+				<el-collapse-item title="backend/conf/env.py 默认值（只读；DB 平台 Key 优先）">
+					<div class="ai-grid">
+						<div v-for="p in aiProviders" :key="p.name" class="ai-card">
+							<div class="ai-card-title">{{ p.name }}</div>
+							<div class="env-items">
+								<div v-for="item in p.items" :key="item.key" class="env-row">
+									<span class="env-label" :title="item.key">{{ item.label }}</span>
+									<span class="env-value">{{ item.value === '' ? '（空）' : item.value }}</span>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="env-hint">
+						以上为 <code>backend/conf/env.py</code> 的 AI 默认值（密钥已脱敏）；在「AI 模型」中配置 DB 平台 Key 后会优先使用 DB。
+					</div>
+				</el-collapse-item>
+			</el-collapse>
+		</div>
+
 		<!-- 飞书群推送 -->
 		<div class="panel">
 			<div class="panel-title">飞书群推送</div>
@@ -52,20 +111,6 @@
 			<div class="bc-foot">渠道可在「基金播报」页自行添加飞书群；基金与新闻会推送到所有启用群。</div>
 		</div>
 
-		<!-- 快捷入口 -->
-		<div class="panel">
-			<div class="panel-title">快捷入口</div>
-			<div class="quick-grid">
-				<router-link v-for="q in quicks" :key="q.path" :to="q.path" class="quick-item">
-					<el-icon class="quick-icon"><component :is="q.icon" /></el-icon>
-					<div class="quick-body">
-						<div class="quick-title">{{ q.title }}</div>
-						<div v-if="q.desc" class="quick-desc">{{ q.desc }}</div>
-					</div>
-				</router-link>
-			</div>
-		</div>
-
 		<!-- 环境配置 -->
 		<div v-if="envGroupsNoAI.length" class="panel">
 			<div class="panel-title">环境配置 (env)</div>
@@ -82,25 +127,6 @@
 			</div>
 			<div class="env-hint">
 				以上为 <code>backend/conf/env.py</code> 配置（密钥已脱敏）；改动需重启后端生效。
-			</div>
-		</div>
-
-		<!-- AI 模型 -->
-		<div v-if="aiProviders.length" class="panel">
-			<div class="panel-title">AI 模型</div>
-			<div class="ai-grid">
-				<div v-for="p in aiProviders" :key="p.name" class="ai-card">
-					<div class="ai-card-title">{{ p.name }}</div>
-					<div class="env-items">
-						<div v-for="item in p.items" :key="item.key" class="env-row">
-							<span class="env-label" :title="item.key">{{ item.label }}</span>
-							<span class="env-value">{{ item.value === '' ? '（空）' : item.value }}</span>
-						</div>
-					</div>
-				</div>
-			</div>
-			<div class="env-hint">
-				以上为 <code>backend/conf/env.py</code>；DeepSeek 用于简报/文案/解析，视觉模型用于提交前截图核对，RAG 用于知识库检索。改完重启后端生效。
 			</div>
 		</div>
 
@@ -125,9 +151,9 @@
 					<span class="qv-total">{{ formatCredit(qveris.total) }}</span>
 					<span class="qv-meta">credits · {{ qveris.count }} 个 key · 最低 {{ formatCredit(qveris.lowest) }}</span>
 				</div>
-				<router-link to="/admin/funds" class="bc-link">查看明细 →</router-link>
+				<a href="#ai-key" class="bc-link">去管理 ↑</a>
 			</div>
-			<div class="bc-sub">用于基金分析（qveris.ai）；余额来自 PocketBase <code>qveris_keys</code>，更新于 {{ qveris.fetched_at }}，缓存 5 分钟。</div>
+			<div class="bc-sub">用于基金分析（qveris.ai）；余额来自 Django AI Key 池（在上方「AI Key（平台）→ QVeris Key 池」管理），更新于 {{ qveris.fetched_at }}，缓存 5 分钟。</div>
 		</div>
 	</div>
 </template>
@@ -135,6 +161,9 @@
 <script setup lang="ts" name="adminDashboard">
 import { ref, computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
+import QverisKeyPool from '/@/views/system/funds/QverisKeyPool.vue';
+import AiModelSettings from '/@/views/system/funds/AiModelSettings.vue';
+import { getAiKeySettings, updateAiKeySettings } from '/@/api/aikeys';
 import { getDashboardStat, getEnvConfig, getQverisCredits, getDocAiSettings, updateDocAiSettings } from './api';
 
 const stat = ref<any>({});
@@ -142,6 +171,9 @@ const envGroups = ref<any[]>([]);
 const qveris = ref<any>(null);
 const docai = ref<any>({ allow_internal: true, allow_manager: true, allow_member: true });
 const docaiSaving = ref(false);
+const aiTab = ref('models');
+const fallbackToGlobal = ref(true);
+const fallbackSaving = ref(false);
 
 const cards = computed(() => [
 	{ label: '渠道总数', value: stat.value.tenant_total ?? '-', icon: 'ele-OfficeBuilding', color: '#409eff' },
@@ -193,6 +225,33 @@ const qverisStatus = computed(() => {
 	return { type: 'success', label: '额度正常' };
 });
 
+const loadFallback = async () => {
+	try {
+		const res: any = await getAiKeySettings();
+		if (res.code === 2000) fallbackToGlobal.value = !!res.data?.fallback_to_global;
+	} catch {
+		/* ignore */
+	}
+};
+
+const saveFallback = async (value: any) => {
+	fallbackSaving.value = true;
+	try {
+		const res: any = await updateAiKeySettings({ fallback_to_global: !!value });
+		if (res.code === 2000) {
+			ElMessage.success(value ? '已开启：未配置时回退平台 Key' : '已关闭：未配置时直接拒绝');
+		} else {
+			fallbackToGlobal.value = !value;
+			ElMessage.error(res.msg || '保存失败');
+		}
+	} catch (e: any) {
+		fallbackToGlobal.value = !value;
+		ElMessage.error(e?.message || '保存失败');
+	} finally {
+		fallbackSaving.value = false;
+	}
+};
+
 onMounted(async () => {
 	try {
 		const [statRes, envRes]: any = await Promise.all([getDashboardStat(), getEnvConfig()]);
@@ -213,6 +272,7 @@ onMounted(async () => {
 	} catch (e) {
 		console.error('docai settings load failed', e);
 	}
+	loadFallback();
 });
 
 const saveDocAi = async () => {
@@ -349,6 +409,19 @@ const saveDocAi = async () => {
 	font-size: 12px; color: var(--cn-muted); line-height: 1.7;
 	code { background: #212121; border: 1px solid var(--cn-border); border-radius: 6px; padding: 1px 6px; color: #9ec9ff; }
 }
+
+.ai-key-panel {
+	> .bc-sub { margin-top: -6px; margin-bottom: 14px; font-size: 12.5px; color: var(--cn-muted); line-height: 1.7; }
+}
+.fallback-row {
+	display: flex; align-items: center; justify-content: space-between; gap: 16px;
+	border: 1px solid var(--cn-border); border-radius: 12px; padding: 14px 16px;
+	background: #141414; margin-bottom: 8px;
+	.fallback-title { font-size: 14px; font-weight: 600; color: var(--cn-text); }
+	.bc-sub { margin-top: 4px; font-size: 12px; color: var(--cn-muted); }
+}
+.ai-tabs { margin-top: 4px; }
+.env-collapse { margin-top: 10px; }
 
 .ai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
 .ai-card {

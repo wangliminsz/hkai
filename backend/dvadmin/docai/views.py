@@ -123,7 +123,8 @@ def analyze(request):
         prompt = str(request.data.get(legacy) or "").strip()
     prompt = prompt[:12000]
 
-    job = DocAiJob.objects.create(user=request.user, kind=kind, filename=_safe_name(upload.name),
+    job = DocAiJob.objects.create(user=request.user, tenant_id=getattr(request.user, "tenant_id", None),
+                                  kind=kind, filename=_safe_name(upload.name),
                                   email=email, status="queued", step="queued", prompt=prompt)
     root = Path(getattr(settings, "DOCAI_DATA_DIR", "") or (Path(settings.BASE_DIR) / "docai_data"))
     folder = root / str(job.id)
