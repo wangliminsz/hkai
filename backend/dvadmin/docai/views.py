@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 import re
 from pathlib import Path
 from urllib.parse import quote
 
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.utils.translation import gettext_lazy as _
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -208,6 +209,29 @@ def report_pdf(request, pk: int):
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
     resp["Content-Disposition"] = (
         f"attachment; filename=report-{pk}.pdf; filename*=UTF-8''{quote(fname)}"
+    )
+    resp["Cache-Control"] = "private, max-age=60"
+    return resp
+
+
+def original_file(request, pk: int):
+    """Download the original uploaded PDF/image. Supports ?token=<jwt>."""
+    user, job = _report_user_and_job(request, pk)
+    if user is None:
+        return HttpResponse("unauthorized", status=401, content_type="text/plain")
+    if job is None:
+        return HttpResponse("not found", status=404, content_type="text/plain")
+    path = Path(job.file_path) if job.file_path else None
+    if not path or not path.is_file():
+        root = Path(getattr(settings, "DOCAI_DATA_DIR", "") or (Path(settings.BASE_DIR) / "docai_data"))
+        path = root / str(job.id) / (job.filename or "")
+    if not path.is_file():
+        return HttpResponse("original file not found", status=404, content_type="text/plain")
+    mime = mimetypes.guess_type(job.filename or path.name)[0] or "application/octet-stream"
+    fname = job.filename or path.name
+    resp = FileResponse(open(path, "rb"), content_type=mime)
+    resp["Content-Disposition"] = (
+        f"attachment; filename=original-{pk}{path.suffix}; filename*=UTF-8''{quote(fname)}"
     )
     resp["Cache-Control"] = "private, max-age=60"
     return resp

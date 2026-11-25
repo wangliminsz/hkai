@@ -11,4 +11,5 @@ urlpatterns = [
     path("jobs/<int:pk>/", views.job_detail, name="docai-job-detail"),
     path("jobs/<int:pk>/report/", views.report, name="docai-job-report"),
     path("jobs/<int:pk>/pdf/", views.report_pdf, name="docai-job-pdf"),
+    path("jobs/<int:pk>/original/", views.original_file, name="docai-job-original"),
 ]

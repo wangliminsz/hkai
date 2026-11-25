@@ -71,9 +71,17 @@
 				<el-table :data="history" size="small" v-loading="loading">
 					<el-table-column prop="id" label="#" width="70" />
 					<el-table-column label="类型" width="80">
-						<template #default="{ row }"><el-tag size="small" effect="plain">{{ row.kind === 'pdf' ? 'PDF' : '图片' }}</el-tag></template>
+						<template #default="{ row }">
+							<el-tooltip content="下载原始文件" placement="top">
+								<el-tag size="small" effect="plain" class="file-tag" @click="downloadOriginal(row)">{{ row.kind === 'pdf' ? 'PDF' : '图片' }}</el-tag>
+							</el-tooltip>
+						</template>
 					</el-table-column>
-					<el-table-column prop="filename" label="文件" min-width="220" show-overflow-tooltip />
+					<el-table-column label="文件" min-width="220" show-overflow-tooltip>
+						<template #default="{ row }">
+							<a class="file-link" @click="downloadOriginal(row)">{{ row.filename }}</a>
+						</template>
+					</el-table-column>
 					<el-table-column prop="email" label="收件邮箱" min-width="200" show-overflow-tooltip />
 					<el-table-column label="状态" width="100">
 						<template #default="{ row }">
@@ -209,6 +217,11 @@ const downloadPdf = (row: any) => {
 	window.open(getBaseURL(`/api/docai/jobs/${row.id}/pdf/?token=${encodeURIComponent(token)}`), '_blank');
 };
 
+const downloadOriginal = (row: any) => {
+	const token = Session.get('token');
+	window.open(getBaseURL(`/api/docai/jobs/${row.id}/original/?token=${encodeURIComponent(token)}`), '_blank');
+};
+
 onMounted(async () => {
 	try {
 		const res: any = await getDocAiAccess();
@@ -265,5 +278,8 @@ onUnmounted(() => {
 	.err { color: #f56c6c; font-size: 12.5px; margin-top: 8px; white-space: pre-wrap; }
 	.actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 	.muted { color: var(--cn-muted, #b1b4b8); font-size: 12.5px; }
+	.file-tag { cursor: pointer; }
+	.file-link { color: inherit; cursor: pointer; text-decoration: none; }
+	.file-link:hover { color: var(--el-color-primary); text-decoration: underline; }
 }
 </style>
