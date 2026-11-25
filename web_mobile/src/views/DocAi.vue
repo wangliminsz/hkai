@@ -73,6 +73,7 @@
         <p v-if="current.error" class="err-text" style="margin-top: 8px">{{ current.error }}</p>
         <div v-if="current.status === 'succeeded'" class="step-actions">
           <van-button size="small" type="primary" plain @click="openReport(current)">查看报告</van-button>
+          <van-button size="small" plain @click="downloadPdf(current)">下载 PDF</van-button>
           <span class="faint small">已发送至 {{ current.email }}</span>
         </div>
       </section>
@@ -94,15 +95,25 @@
               <div class="hist-file">{{ row.filename }}</div>
               <div class="faint small">{{ row.created_at }} · {{ row.email }}</div>
             </div>
-            <van-button
-              size="mini"
-              plain
-              type="primary"
-              :disabled="row.status !== 'succeeded'"
-              @click="openReport(row)"
-            >
-              报告
-            </van-button>
+            <div class="hist-actions">
+              <van-button
+                size="mini"
+                plain
+                type="primary"
+                :disabled="row.status !== 'succeeded'"
+                @click="openReport(row)"
+              >
+                报告
+              </van-button>
+              <van-button
+                size="mini"
+                plain
+                :disabled="row.status !== 'succeeded'"
+                @click="downloadPdf(row)"
+              >
+                PDF
+              </van-button>
+            </div>
           </div>
         </div>
       </section>
@@ -122,6 +133,7 @@ import {
   getDocAiJob,
   getDocAiPrompts,
   listDocAiJobs,
+  reportPdfUrl,
   reportUrl,
 } from '@/api/docai';
 
@@ -222,6 +234,10 @@ async function submit() {
 
 function openReport(row: any) {
   window.open(reportUrl(row.id), '_blank');
+}
+
+function downloadPdf(row: any) {
+  window.open(reportPdfUrl(row.id), '_blank');
 }
 
 onMounted(async () => {
@@ -382,6 +398,12 @@ onUnmounted(() => {
 }
 .hist-main {
   min-width: 0;
+}
+.hist-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .hist-title {
   display: flex;

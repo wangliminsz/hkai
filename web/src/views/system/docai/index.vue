@@ -58,6 +58,7 @@
 				<div v-if="current.error" class="err">{{ current.error }}</div>
 				<div v-if="current.status === 'succeeded'" class="actions">
 					<el-button size="small" type="primary" @click="openReport(current)">查看报告</el-button>
+					<el-button size="small" @click="downloadPdf(current)">下载 PDF</el-button>
 					<span class="muted">已发送至 {{ current.email }}</span>
 				</div>
 			</section>
@@ -80,9 +81,10 @@
 						</template>
 					</el-table-column>
 					<el-table-column prop="created_at" label="时间" width="170" />
-					<el-table-column label="操作" width="100" align="center">
+					<el-table-column label="操作" width="190" align="center">
 						<template #default="{ row }">
 							<el-button size="small" :disabled="row.status !== 'succeeded'" @click="openReport(row)">查看报告</el-button>
+							<el-button size="small" :disabled="row.status !== 'succeeded'" @click="downloadPdf(row)">下载 PDF</el-button>
 						</template>
 					</el-table-column>
 				</el-table>
@@ -200,6 +202,11 @@ const submit = async () => {
 const openReport = (row: any) => {
 	const token = Session.get('token');
 	window.open(getBaseURL(`/api/docai/jobs/${row.id}/report/?token=${encodeURIComponent(token)}`), '_blank');
+};
+
+const downloadPdf = (row: any) => {
+	const token = Session.get('token');
+	window.open(getBaseURL(`/api/docai/jobs/${row.id}/pdf/?token=${encodeURIComponent(token)}`), '_blank');
 };
 
 onMounted(async () => {

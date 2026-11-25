@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 from django.conf import settings
 from django.http import HttpResponse
@@ -156,8 +157,8 @@ def job_detail(request, pk: int):
     return SuccessResponse(data=_serialize(job, with_html=True))
 
 
-def report(request, pk: int):
-    """HTML report (for the '查看报告' link). Supports ?token=<jwt>."""
+def _report_user_and_job(request, pk: int):
+    """Resolve the requesting user (JWT header or ?token=) and the job it may read."""
     token = request.GET.get("token", "")
     user = request.user if getattr(request, "user", None) and request.user.is_authenticated else None
     if user is None and token:
@@ -166,13 +167,47 @@ def report(request, pk: int):
         except Exception:  # noqa: BLE001
             user = None
     if user is None:
-        return HttpResponse("unauthorized", status=401, content_type="text/plain")
+        return None, None
     job = DocAiJob.objects.filter(id=pk).first()
     if job is None or (not user.is_superuser and job.user_id != user.id):
+        return user, None
+    return user, job
+
+
+def report(request, pk: int):
+    """HTML report (for the '查看报告' link). Supports ?token=<jwt>."""
+    user, job = _report_user_and_job(request, pk)
+    if user is None:
+        return HttpResponse("unauthorized", status=401, content_type="text/plain")
+    if job is None:
         return HttpResponse("not found", status=404, content_type="text/plain")
     if not job.report_html:
         return HttpResponse("report not ready", status=404, content_type="text/plain")
     resp = HttpResponse(job.report_html, content_type="text/html; charset=utf-8")
     resp["Content-Disposition"] = "inline"
+    resp["Cache-Control"] = "private, max-age=60"
+    return resp
+
+
+def report_pdf(request, pk: int):
+    """PDF report download. Supports ?token=<jwt>."""
+    user, job = _report_user_and_job(request, pk)
+    if user is None:
+        return HttpResponse("unauthorized", status=401, content_type="text/plain")
+    if job is None:
+        return HttpResponse("not found", status=404, content_type="text/plain")
+    if not job.report_html:
+        return HttpResponse("report not ready", status=404, content_type="text/plain")
+    try:
+        pdf_bytes = services.render_report_pdf(job.report_html)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[DOCAI] PDF render failed for job %s", pk)
+        return HttpResponse(f"PDF generation failed: {exc}", status=500, content_type="text/plain")
+    stem = re.sub(r'[\\/:*?"<>|]+', "_", Path(job.filename or "report").stem).strip(" .")[:80] or "report"
+    fname = f"{stem}-AI分析报告.pdf"
+    resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+    resp["Content-Disposition"] = (
+        f"attachment; filename=report-{pk}.pdf; filename*=UTF-8''{quote(fname)}"
+    )
     resp["Cache-Control"] = "private, max-age=60"
     return resp

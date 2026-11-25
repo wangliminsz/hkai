@@ -34,3 +34,7 @@ export function getDocAiJob(id: number) {
 export function reportUrl(id: number) {
   return withToken(`/api/docai/jobs/${id}/report/`);
 }
+
+export function reportPdfUrl(id: number) {
+  return withToken(`/api/docai/jobs/${id}/pdf/`);
+}

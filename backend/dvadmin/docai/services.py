@@ -253,19 +253,48 @@ def render_report_pdf(html_body: str) -> bytes:
             browser.close()
 
 
+_MAX_ORIGINAL_ATTACH = 20 * 1024 * 1024
+
+
 def send_report_email(to_email: str, filename: str, html_body: str,
-                      pdf_bytes: bytes | None = None, pdf_name: str = "") -> None:
+                      pdf_bytes: bytes | None = None, pdf_name: str = "",
+                      original_bytes: bytes | None = None, original_name: str = "",
+                      original_mime: str = "application/octet-stream") -> list[str]:
+    """Send the report to each recipient as a separate message.
+
+    One message per recipient (instead of one message with many ``To`` addresses)
+    avoids Chinese providers flagging multi-domain recipient lists as bulk mail and
+    lets one rejection/drop not affect the others. Returns the failed addresses.
+    """
     recipients = [x.strip() for x in re.split(r"[,;，；]", to_email or "") if x.strip()]
     if not recipients:
         raise RuntimeError("未填写收件邮箱")
     subject = f"AI 分析报告 - {filename or 'Finance Report'}"
-    msg = EmailMultiAlternatives(
-        subject,
-        "请使用支持 HTML 的邮箱查看分析报告。",
-        getattr(settings, "DEFAULT_FROM_EMAIL", None) or getattr(settings, "EMAIL_HOST_USER", None),
-        recipients,
-    )
-    msg.attach_alternative(html_body, "text/html")
-    if pdf_bytes:
-        msg.attach(pdf_name or "AI-analysis.pdf", pdf_bytes, "application/pdf")
-    msg.send(fail_silently=False)
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or getattr(settings, "EMAIL_HOST_USER", None)
+    attach_original = bool(original_bytes) and len(original_bytes) <= _MAX_ORIGINAL_ATTACH
+    if original_bytes and not attach_original:
+        logger.warning("[DOCAI] original file too large to attach (%s bytes), skipped", len(original_bytes))
+
+    failed: list[str] = []
+    for to_addr in recipients:
+        msg = EmailMultiAlternatives(
+            subject,
+            "请使用支持 HTML 的邮箱查看分析报告。",
+            from_email,
+            [to_addr],
+        )
+        msg.attach_alternative(html_body, "text/html")
+        if pdf_bytes:
+            msg.attach(pdf_name or "AI-analysis.pdf", pdf_bytes, "application/pdf")
+        if attach_original:
+            msg.attach(original_name or "original", original_bytes, original_mime)
+        try:
+            msg.send(fail_silently=False)
+            logger.info("[DOCAI] report emailed to %s", to_addr)
+        except Exception as exc:  # noqa: BLE001 - keep sending to the rest
+            logger.warning("[DOCAI] email to %s failed: %s", to_addr, exc)
+            failed.append(to_addr)
+
+    if failed and len(failed) == len(recipients):
+        raise RuntimeError("邮件发送失败: " + ", ".join(failed))
+    return failed

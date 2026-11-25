@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 import re
 import time
 from pathlib import Path
@@ -63,8 +64,14 @@ def run_docai(job_id: int):
         except Exception as exc:  # noqa: BLE001 - email should still go out
             logger.warning("[DOCAI] PDF render failed: %s", exc)
         stem = re.sub(r'[\\/:*?"<>|]+', "_", Path(job.filename or "report").stem).strip(" .")[:80] or "report"
-        services.send_report_email(job.email, job.filename, html,
-                                   pdf_bytes=pdf_bytes, pdf_name=f"{stem}-AI分析报告.pdf")
+        original_mime = mimetypes.guess_type(job.filename or "")[0] or (
+            "application/pdf" if job.kind == "pdf" else "application/octet-stream")
+        services.send_report_email(
+            job.email, job.filename, html,
+            pdf_bytes=pdf_bytes, pdf_name=f"{stem}-AI分析报告.pdf",
+            original_bytes=data, original_name=job.filename or "original",
+            original_mime=original_mime,
+        )
 
         DocAiJob.objects.filter(id=job_id).update(
             status="succeeded", step="done", report_html=html,
