@@ -53,6 +53,9 @@ class Settings:
     # Cash-withdrawal search precision
     WITHDRAW_STEP = int(_opt("WITHDRAW_STEP", default="5000") or "5000")
 
+    # How long to wait for page 4 (萬用壽險更改) to finish computing ("載入中")
+    PAGE4_LOAD_TIMEOUT = int(_opt("PROPOSAL_PAGE4_TIMEOUT", "PAGE4_LOAD_TIMEOUT", default="180") or "180")
+
     # Portal login (per-job; set on the Portal instance by the runner)
     YFLIFE_BASE = ""
     YFLIFE_ACCOUNT = None

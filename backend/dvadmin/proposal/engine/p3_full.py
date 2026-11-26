@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import re
 import sys
+import time
 from pathlib import Path
 
 from playwright.async_api import Page
@@ -280,18 +281,27 @@ async def _goto_page4(page: Page, emit=None) -> bool:
         loc = page.get_by_text("萬用壽險更改", exact=True)
         n = await loc.count()
         for i in range(n):
+            clicked = False
             for how in ("click", "force"):
                 try:
                     if how == "force":
                         await loc.nth(i).click(timeout=4000, force=True)
                     else:
                         await loc.nth(i).click(timeout=4000)
+                    clicked = True
                     break
                 except Exception:
                     continue
-            await page.wait_for_timeout(3000)
-            if await _on_page4(page):
-                return True
+            if not clicked:
+                continue
+            # Page 4 recomputes after the tab click; it may show 『載入中』 for a
+            # long time, so keep polling instead of assuming a 3s load.
+            for tick in range(PAGE4_LOAD_TIMEOUT):
+                if await _on_page4(page):
+                    return True
+                if tick >= 5 and not await _p4_loading(page):
+                    break
+                await page.wait_for_timeout(1000)
         await page.wait_for_timeout(1500)
     ok = await _on_page4(page)
     if emit and not ok:
@@ -363,31 +373,62 @@ async def _click_text(page: Page, text: str, timeout: int = 6000) -> bool:
     return False
 
 
+# Page 4 can take a long time to compute on the portal; tunable via env.
+PAGE4_LOAD_TIMEOUT = int(getattr(settings, "PAGE4_LOAD_TIMEOUT", 180) or 180)
+
+
+async def _p4_loading(page: Page) -> bool:
+    """True while page 4 still shows a 『載入中』 (loading) button."""
+    try:
+        return bool(await page.evaluate(
+            """() => [...document.querySelectorAll('button')].some(b => {
+                     const r = b.getBoundingClientRect();
+                     return r.width > 0 && r.height > 0
+                         && (b.innerText || '').trim() === '載入中';
+                   })"""
+        ))
+    except Exception:
+        return False
+
+
 async def _open_change_modal(page: Page, emit) -> bool:
     """Open the page-4 更改項目 modal (button is 新增更改項目 or 編輯更改項目)."""
     trigger = page.locator("div[label='更改項目'] button[id^='headlessui-listbox-button']")
-    for attempt in range(1, 13):
+    deadline = time.monotonic() + PAGE4_LOAD_TIMEOUT
+    attempt = 0
+    loading_logged = False
+    while time.monotonic() < deadline:
         if await trigger.count():
             return True
-        await _p4_wait_idle(page, 10000)
-        # page may still be computing ("載入中") -- wait it out
-        try:
-            if await page.get_by_role("button", name="載入中").count():
-                emit(f"    [dbg] 第{attempt}次：页面仍在『載入中』")
-                await page.wait_for_timeout(3000)
-                continue
-        except Exception:
-            pass
+        attempt += 1
+        # Click the action button whenever it is present, even if other buttons
+        # still read 『載入中』.
         clicked = False
         for nm in ("新增更改項目", "編輯更改項目"):
             if await _click_text(page, nm):
                 clicked = True
                 break
-        if not clicked:
-            emit(f"    [dbg] 第{attempt}次未找到『新增/編輯更改項目』（可能加载中）")
-        await page.wait_for_timeout(2500)
-        if await trigger.count():
-            return True
+        if clicked:
+            # wait for the modal's 更改項目 dropdown to appear
+            for _ in range(30):
+                if await trigger.count():
+                    return True
+                await page.wait_for_timeout(1000)
+            return await trigger.count() > 0
+        # The portal re-renders page 4 after we arrive; while it recomputes the
+        # projection both action buttons read 『載入中』 and 新增更改項目 is gone.
+        if await _p4_loading(page):
+            if not loading_logged:
+                emit(f"    [dbg] 第4页仍在计算（『載入中』），最多等待 {PAGE4_LOAD_TIMEOUT}s…")
+                loading_logged = True
+            await page.wait_for_timeout(3000)
+            continue
+        loading_logged = False
+        await _p4_wait_idle(page, 8000)
+        if attempt % 5 == 1:
+            emit(f"    [dbg] 第{attempt}次未找到『新增/編輯更改項目』，继续等待…")
+        await page.wait_for_timeout(2000)
+    emit(f"    [dbg] 等待第4页超时（{PAGE4_LOAD_TIMEOUT}s）")
     return await trigger.count() > 0
 
 
