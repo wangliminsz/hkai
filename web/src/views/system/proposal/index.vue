@@ -11,13 +11,16 @@
 		<section class="card catalog">
 			<div class="row-between">
 				<strong>可生成计划书（{{ products.length }} 个产品）</strong>
-				<span class="muted">当前系统支持以下险种与缴费期</span>
+				<span class="muted">当前系统支持以下险种与缴费期 · 点击产品可填入示例</span>
 			</div>
 			<div class="prod-grid">
-				<div v-for="p in products" :key="p.code" class="prod">
+				<div v-for="p in products" :key="p.code" class="prod" title="点击填入示例提示词" @click="useExample(p)">
 					<div class="prod-name">
-						{{ p.name }}
-						<span class="muted" v-if="p.category">· {{ p.category }}</span>
+						<span>
+							{{ p.name }}
+							<span class="muted" v-if="p.category">· {{ p.category }}</span>
+						</span>
+						<span class="example-hint">示例</span>
 					</div>
 					<div v-for="v in p.variants" :key="v.tier || 'default'" class="prod-variant">
 						<span v-if="v.tier" class="tier">{{ v.tier }}</span>
@@ -106,6 +109,27 @@ import { getPortals, getProducts, listJobs, createJob, getJob } from './api';
 
 const EXAMPLE_PROMPT =
 	'Mr.VIP，男性，40 岁，非吸烟者，投保尚裕寿险，保额 100 万美元，缴费期 20 年，居住地中国大陆';
+
+const buildExample = (p: any) => {
+	const variant = p.variants?.[0] || {};
+	const tier = variant.tier || '';
+	const rawPeriod = variant.periods?.[0] || '20年缴';
+	const isSavings = /儲蓄|储蓄|年金/.test(p.category || '');
+	const parts = [
+		'Mr.VIP', '男性', '40 岁', '非吸烟者',
+		`投保${p.name}${tier ? `（${tier}）` : ''}`,
+		isSavings ? '每年保费 1 万美元' : '保额 100 万美元',
+		rawPeriod === '一次过缴付' ? '一次过缴付' : `缴费期 ${rawPeriod.replace(/缴$/, '')}`,
+	];
+	if (isSavings) parts.push('自保单 20 年起，每年提取最大值');
+	parts.push('居住地中国大陆');
+	return parts.join('，');
+};
+
+const useExample = (p: any) => {
+	text.value = buildExample(p);
+	ElMessage.success('已填入示例，可直接修改后生成');
+};
 
 const copyExample = async () => {
 	try {
@@ -278,12 +302,28 @@ onUnmounted(() => {
 		border-radius: 8px;
 		padding: 10px 12px;
 		background: #161618;
+		cursor: pointer;
+		transition: border-color 0.2s, background 0.2s;
+	}
+	.prod:hover {
+		border-color: #409eff;
+		background: #171a1e;
 	}
 	.prod-name {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
 		font-size: 13px;
 		color: #eaeaea;
 		font-weight: 500;
 		margin-bottom: 5px;
+	}
+	.example-hint {
+		flex-shrink: 0;
+		font-size: 11px;
+		font-weight: 400;
+		color: #7db6ff;
 	}
 	.prod-variant {
 		display: flex;
