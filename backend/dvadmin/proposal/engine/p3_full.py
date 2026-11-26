@@ -560,29 +560,40 @@ async def run_withdrawal(page: Page, portal: Portal, case: dict, emit) -> int:
       * We CAN return to page 4 by clicking the '萬用壽險更改' step tab.
       * An INFEASIBLE probe keeps us on page 4.
 
-    Strategy: binary-search on a COARSE grid (5000) to bracket the maximum
-    quickly, then refine on a FINE grid (1000) inside that bracket. The result
-    is always a multiple of 1000 (floored).
+    Strategy: binary-search on a grid whose step scales with the request (so a
+    USD 20k plan searches in 1,000 steps instead of the default 5,000), then
+    optionally refine on a finer grid (WITHDRAW_STEP) inside that bracket.
     """
     requested = int(case["withdraw_amount"]) if case.get("withdraw_amount") else 0
     COARSE = 5000
-    # Precision: default 5000 (coarse only). Set WITHDRAW_STEP=1000 to also
-    # refine down to 1000 inside the coarse bracket.
-    FINE = int(settings.WITHDRAW_STEP or COARSE)
-    refine = FINE < COARSE
     frm, to = case.get("withdraw_from"), case.get("withdraw_to")
     basis = str(case.get("withdraw_basis") or "year").lower()
     basis_txt = "年齡" if basis == "age" else "保單年度"
 
     # "提取最大值": no explicit amount -> search up to a safe upper bound.
-    # Use the total premium (amount x period) as the cap.
+    # Use the total premium (amount x period) as the cap; a small plan cannot
+    # withdraw anywhere near the old 100,000 floor.
     if not requested:
         try:
-            cap = int(case["amount"]) * int(case["period"] or 1)
+            period = str(case["period"] or "").strip().lower()
+            years = 1 if period in ("lump", "single") else int(period)
+            cap = int(case["amount"]) * max(1, years)
         except Exception:
             cap = 0
-        requested = max(cap, 100000)
+        requested = cap if cap > 0 else 100000
         emit(f"  · 『提取最大值』→ 以上限 {requested:,}（≈ 總保費）作起點搜尋")
+
+    # Scale the search grid with the amount: a 20k plan needs a much finer step
+    # than 5,000, otherwise every probe is "not enough cash value" and we give
+    # up without ever testing the feasible range.
+    COARSE = min(requested, max(500, min(COARSE, requested // 20)))
+    # Precision: default 5000 (coarse only). Set WITHDRAW_STEP=1000 to also
+    # refine down to 1000 inside the coarse bracket. Small plans (whose coarse
+    # grid was reduced) refine automatically to COARSE/5.
+    FINE = max(1, min(int(settings.WITHDRAW_STEP or COARSE), COARSE))
+    if COARSE < 5000:
+        FINE = max(100, min(FINE, COARSE // 5))
+    refine = FINE < COARSE
 
     emit(f"  · 現金提取：以{basis_txt} 由 {frm} 至 {to}；"
          f"粗搜 {COARSE}" + (f" → 精修 {FINE}" if refine else f"（精度 {FINE}，不精修）")
@@ -648,22 +659,29 @@ async def run_withdrawal(page: Page, portal: Portal, case: dict, emit) -> int:
     ok, err = await probe(requested)
     if ok:
         emit(f"    ✅ {requested:,} 可行（即為上限）")
-        return floor_u(requested, FINE)
+        return requested
     emit(f"    ✗ {requested:,} 不可行：{err}")
 
     # ---- 2) COARSE search --------------------------------------------------
     lo, hi = await search(0, requested, COARSE)
-    lo = floor_u(lo, COARSE)
     emit(f"    粗搜結果：{lo:,} 可行，上限收窄至 {hi:,}")
 
-    # ---- 3) FINE search inside the bracket (only if requested) -------------
+    # ---- 3) FINE search inside the bracket (small plans / WITHDRAW_STEP) ---
     if refine and not st["detached"]:
         lo, hi = await search(lo, hi, FINE)
-    best = floor_u(lo, FINE)
+    best = lo
 
-    if best < FINE:
+    # If even one COARSE step is infeasible, retry near zero with a finer grid
+    # (small savings plans can have a max withdrawal below the coarse step).
+    if best <= 0 and not refine and not st["detached"] and COARSE > 100:
+        sub = max(100, COARSE // 5)
+        emit(f"    {COARSE:,} 步长内无可行值，改用 {sub:,} 步长重试…")
+        lo, hi = await search(0, COARSE, sub)
+        best = lo
+
+    if best <= 0:
         raise StepError(
-            f"未能找到任何可行的提取金额（{FINE:,} 也失败）。"
+            f"未能找到任何可行的提取金额（最小步长 {max(100, COARSE // 5):,} 也失败）。"
             f"请确认保费/年期，或缩短提取年期。"
         )
 
@@ -676,7 +694,7 @@ async def run_withdrawal(page: Page, portal: Portal, case: dict, emit) -> int:
                 f"提交提取 {best:,}/年 失败（{err}）。请降低提取金额或缩短提取年期。"
             )
     emit(f"    ✅ 最终提取金额 {best:,}/年")
-    return floor_u(best, FINE)
+    return best
 
 
 async def _advance(
