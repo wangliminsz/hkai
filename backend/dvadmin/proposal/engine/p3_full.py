@@ -176,7 +176,9 @@ async def vision_gate(portal: Portal, page: Page, case: dict, emit=None) -> bool
     else:
         case_for_verify["level"] = ""
     try:
-        verdict = verify_summary(shot, case_for_verify)
+        # verify_summary resolves the vision AI key via the Django ORM; run it in a
+        # worker thread so it is not executed inside this event loop.
+        verdict = await asyncio.to_thread(verify_summary, shot, case_for_verify)
     except Exception as exc:
         out(f"  ⚠️ 视觉核对调用失败: {exc}")
         out("  → 保守起见视为未通过（不自动放行）")

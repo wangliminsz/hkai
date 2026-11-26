@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 
 async def _run(text: str, create_pdf: bool, portal_creds: dict, log: Callable[[str], None]) -> dict:
     try:
-        case = parse_case(text)
+        # parse_case does synchronous Django ORM lookups (AI key resolver); run it
+        # in a worker thread so it is not executed inside this event loop.
+        case = await asyncio.to_thread(parse_case, text)
     except CaseError as exc:
         raise RuntimeError(f"输入解析失败: {exc}") from exc
 
