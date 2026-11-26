@@ -139,7 +139,8 @@ async def run_web(
             await _advance(page, expect="新增更改項目", portal=portal, max_steps=4)
             final_amount = await run_withdrawal(page, portal, case, emit)
             basis_txt = "年齡" if str(case.get("withdraw_basis") or "year") == "age" else "保單年度"
-            emit(f"  ✅ 最终提取金额：{final_amount:,}/年（以{basis_txt} 由 {case.get('withdraw_from')} 至 {case.get('withdraw_to')}）")
+            to_txt = "保單結束" if case.get("withdraw_to_end") else case.get("withdraw_to")
+            emit(f"  ✅ 最终提取金额：{final_amount:,}/年（以{basis_txt} 由 {case.get('withdraw_from')} 至 {to_txt}）")
         else:
             emit("[第 3-4 页] 萬用壽險更改：该产品无需提取，跳过")
 
@@ -518,7 +519,25 @@ async def fill_withdrawal(page: Page, case: dict, amount: int, emit, *, first: b
 
     # 至
     await _open_dropdown(page, label="至")
-    await page.get_by_role("option", name=str(case["withdraw_to"]), exact=True).last.click()
+    if case.get("withdraw_to_end"):
+        # "至保單結束" has no concrete year: the dropdown's last visible option
+        # is the policy end (e.g. age 120 -> policy year 80 for a 40-year-old).
+        opts = page.get_by_role("option")
+        count = await opts.count()
+        last_idx = None
+        for i in range(count):
+            if await opts.nth(i).is_visible():
+                last_idx = i
+        if last_idx is None:
+            raise StepError("『至』下拉没有可选项（无法选择保單結束）")
+        opt = opts.nth(last_idx)
+        try:
+            emit(f"    『至』选择最后一项: {(await opt.inner_text()).strip()}")
+        except Exception:
+            pass
+        await opt.click()
+    else:
+        await page.get_by_role("option", name=str(case["withdraw_to"]), exact=True).last.click()
     await page.wait_for_timeout(800)
 
     # amount (both modes)
@@ -595,7 +614,8 @@ async def run_withdrawal(page: Page, portal: Portal, case: dict, emit) -> int:
         FINE = max(100, min(FINE, COARSE // 5))
     refine = FINE < COARSE
 
-    emit(f"  · 現金提取：以{basis_txt} 由 {frm} 至 {to}；"
+    to_txt = "保單結束" if case.get("withdraw_to_end") else to
+    emit(f"  · 現金提取：以{basis_txt} 由 {frm} 至 {to_txt}；"
          f"粗搜 {COARSE}" + (f" → 精修 {FINE}" if refine else f"（精度 {FINE}，不精修）")
          + f"，上限 {requested:,}")
 

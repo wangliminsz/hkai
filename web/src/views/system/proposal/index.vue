@@ -121,7 +121,7 @@ const buildExample = (p: any) => {
 		isSavings ? '每年保费 1 万美元' : '保额 100 万美元',
 		rawPeriod === '一次过缴付' ? '一次过缴付' : `缴费期 ${rawPeriod.replace(/缴$/, '')}`,
 	];
-	if (isSavings) parts.push('自保单 20 年起，每年提取最大值');
+	if (isSavings) parts.push('自保单 20 年起，至保单结束，每年提取最大值');
 	parts.push('居住地中国大陆');
 	return parts.join('，');
 };

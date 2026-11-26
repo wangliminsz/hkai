@@ -51,6 +51,7 @@ class Case:
     withdraw_to: int | None = None       # 至保單年度 / 至年齡
     withdraw_basis: str = "year"         # "year" (保單年度) | "age" (年齡)
     withdraw_max: bool = False           # "提取最大值" -> search for the max
+    withdraw_to_end: bool = False        # "至保單結束/保障期滿" -> use the last option
 
     # ---- derived (deterministic, not from the LLM) ----
     @property
@@ -66,7 +67,9 @@ class Case:
 
     @property
     def has_withdrawal(self) -> bool:
-        if self.withdraw_from is None or self.withdraw_to is None:
+        if self.withdraw_from is None:
+            return False
+        if self.withdraw_to is None and not self.withdraw_to_end:
             return False
         return self.withdraw_amount is not None or self.withdraw_max
 
@@ -114,6 +117,13 @@ _LATIN_TITLE_PREFIX_RE = re.compile(r"^(?:mr|mrs|ms|miss)\.?\s*", re.IGNORECASE)
 _WITHDRAW_AMT_WAN_RE = re.compile(r"提取[^\d]{0,8}(\d+(?:\.\d+)?)\s*[萬万]")
 _WITHDRAW_AMT_RE = re.compile(r"提取[^\d]{0,8}(\d{3,})")
 _WITHDRAW_MAX_RE = re.compile(r"提取\s*(?:最大|最多|最大值|上限)|最大\s*(?:值|金額|金额)?\s*提取")
+
+# "至保單結束 / 保障期滿 / 至期滿" -> no concrete year; use the last option.
+_WITHDRAW_TO_END_RE = re.compile(
+    r"(?:(?:至|到|直至)\s*)?"
+    r"(?:保[單单][結结]束|保[單单]終[結结]|保[單单]期[滿满]"
+    r"|保[障障][結结]束|保[障障]期[滿满]|期[滿满]|[滿满]期)"
+)
 
 # ranges: allow 起/開始 and Chinese commas between the two bounds
 _WITHDRAW_YEAR_RANGE_RE = re.compile(
@@ -221,6 +231,8 @@ def parse_withdrawal_text(text: str) -> dict:
 
     if _WITHDRAW_MAX_RE.search(text):
         out["max"] = True
+    if _WITHDRAW_TO_END_RE.search(text):
+        out["to_end"] = True
     return out
 
 
@@ -338,6 +350,7 @@ _EXTRACT_TOOL = {
                 "withdraw_to": {"type": "integer", "description": "（可选）現金提取结束：保单年度 或 年龄，如 '至第50年' -> 50；'至100岁' -> 100"},
                 "withdraw_basis": {"type": "string", "enum": ["year", "age"], "description": "提取区间以什么计：'year'=保單年度；'age'=年齡。'第10年'->year；'60岁'->age"},
                 "withdraw_max": {"type": "boolean", "description": "（可选）若原文说'提取最大值/最多/上限'（未给具体金额）则 true"},
+                "withdraw_to_end": {"type": "boolean", "description": "（可选）若原文说'至保单结束/保障期满/至期满'（没有具体年度或年龄）则 true，且不要填 withdraw_to"},
             },
             "required": ["name", "age", "gender", "smoke", "product", "period", "region", "amount"],
         },
@@ -362,6 +375,8 @@ Rules:
       -> basis=year, from=10, to=50, amount=50000
     "自60岁起，至100岁，提取最大值"
       -> basis=age, from=60, to=100, withdraw_max=true (no amount)
+    "自保单20年起，至保单结束，每年提取最大值"
+      -> basis=year, from=20, withdraw_to_end=true, withdraw_max=true (no to)
   Note the unit: 第N年 -> basis=year; N岁 -> basis=age.
   Omit all of them if the text does not mention a withdrawal.
 - If a field is genuinely absent, omit it (do not invent)."""
@@ -470,6 +485,10 @@ def _build_case(text: str) -> Case:
             raw["withdraw_basis"] = rx["basis"]
         if rx.get("max") and not raw.get("withdraw_max"):
             raw["withdraw_max"] = True
+        if rx.get("to_end"):
+            # "至保單結束/保障期滿" has no concrete year -> the UI's last option.
+            raw["withdraw_to_end"] = True
+            raw["withdraw_to"] = None
 
     missing = [k for k in _REQUIRED if raw.get(k) in (None, "")]
     if missing:
@@ -553,17 +572,18 @@ def _build_case(text: str) -> Case:
     if w_basis not in ("year", "age"):
         w_basis = "year"
     w_max = bool(raw.get("withdraw_max"))
+    w_to_end = bool(raw.get("withdraw_to_end"))
     if w_amt is not None or w_max:
-        if w_amt is None:
-            w_amt = None                     # search for the max instead
         # fill sensible defaults if only one bound was given
         if w_basis == "age":
             w_from = w_from if w_from is not None else 60
-            w_to = w_to if w_to is not None else 100
         else:
             w_from = w_from if w_from is not None else 10
-            w_to = w_to if w_to is not None else 50
-        if w_to <= w_from:
+        if w_to_end:
+            w_to = None                      # UI picks the last (policy end) option
+        elif w_to is None:
+            w_to = 100 if w_basis == "age" else 50
+        if not w_to_end and w_to is not None and w_from is not None and w_to <= w_from:
             raise CaseError(f"提取区间不合法: 由 {w_from} 至 {w_to}")
 
     case = Case(
@@ -583,6 +603,7 @@ def _build_case(text: str) -> Case:
         withdraw_to=(w_to if (w_amt is not None or w_max) else None),
         withdraw_basis=w_basis,
         withdraw_max=w_max,
+        withdraw_to_end=(w_to_end if (w_amt is not None or w_max) else False),
     )
     _validate(case)
     return case
