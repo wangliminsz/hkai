@@ -63,14 +63,21 @@ def run_docai(job_id: int):
             pdf_bytes = services.render_report_pdf(html)
         except Exception as exc:  # noqa: BLE001 - email should still go out
             logger.warning("[DOCAI] PDF render failed: %s", exc)
-        stem = re.sub(r'[\\/:*?"<>|]+', "_", Path(job.filename or "report").stem).strip(" .")[:80] or "report"
+        stamp = time.strftime("%Y%m%d")
+        ext = Path(job.filename or "").suffix.lower()
         original_mime = mimetypes.guess_type(job.filename or "")[0] or (
             "application/pdf" if job.kind == "pdf" else "application/octet-stream")
+        display_name = re.sub(r"(?i)^mmexport\d+", "上传文件", Path(job.filename or "文件").name) or "文件"
+        text_body = (
+            f"您好，附件是「{display_name}」的 AI 文件分析报告。\n\n"
+            f"{(analysis or '').strip()[:20000]}\n\n"
+            "—— 本邮件由系统自动发送，请勿直接回复。"
+        )
         services.send_report_email(
             job.email, job.filename, html,
-            pdf_bytes=pdf_bytes, pdf_name=f"{stem}-AI分析报告.pdf",
-            original_bytes=data, original_name=job.filename or "original",
-            original_mime=original_mime,
+            pdf_bytes=pdf_bytes, pdf_name=f"AI分析报告-{stamp}.pdf",
+            original_bytes=data, original_name=f"分析原始文件{ext}" if ext else "分析原始文件",
+            original_mime=original_mime, text_body=text_body,
         )
 
         DocAiJob.objects.filter(id=job_id).update(

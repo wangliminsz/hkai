@@ -259,7 +259,8 @@ _MAX_ORIGINAL_ATTACH = 20 * 1024 * 1024
 def send_report_email(to_email: str, filename: str, html_body: str,
                       pdf_bytes: bytes | None = None, pdf_name: str = "",
                       original_bytes: bytes | None = None, original_name: str = "",
-                      original_mime: str = "application/octet-stream") -> list[str]:
+                      original_mime: str = "application/octet-stream",
+                      text_body: str = "") -> list[str]:
     """Send the report to each recipient as a separate message.
 
     One message per recipient (instead of one message with many ``To`` addresses)
@@ -269,17 +270,18 @@ def send_report_email(to_email: str, filename: str, html_body: str,
     recipients = [x.strip() for x in re.split(r"[,;，；]", to_email or "") if x.strip()]
     if not recipients:
         raise RuntimeError("未填写收件邮箱")
-    subject = f"AI 分析报告 - {filename or 'Finance Report'}"
+    subject = f"AI 文件分析报告 · {datetime.now():%Y-%m-%d}"
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or getattr(settings, "EMAIL_HOST_USER", None)
     attach_original = bool(original_bytes) and len(original_bytes) <= _MAX_ORIGINAL_ATTACH
     if original_bytes and not attach_original:
         logger.warning("[DOCAI] original file too large to attach (%s bytes), skipped", len(original_bytes))
 
+    plain = (text_body or "").strip() or "您好，附件是您的 AI 文件分析报告，请查收。"
     failed: list[str] = []
     for to_addr in recipients:
         msg = EmailMultiAlternatives(
             subject,
-            "请使用支持 HTML 的邮箱查看分析报告。",
+            plain,
             from_email,
             [to_addr],
         )
