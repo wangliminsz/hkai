@@ -56,6 +56,11 @@ class Settings:
     # How long to wait for page 4 (萬用壽險更改) to finish computing ("載入中")
     PAGE4_LOAD_TIMEOUT = int(_opt("PROPOSAL_PAGE4_TIMEOUT", "PAGE4_LOAD_TIMEOUT", default="180") or "180")
 
+    # How long to wait for page-2 計劃詳情 fields (e.g. #sumInsured) to become
+    # visible + enabled after a plan is selected. The portal recomputes plan
+    # details server-side, which can take well over 5s on a slow network.
+    PAGE2_FIELD_TIMEOUT = int(_opt("PROPOSAL_PAGE2_TIMEOUT", "PAGE2_FIELD_TIMEOUT", default="60") or "60")
+
     # Portal login (per-job; set on the Portal instance by the runner)
     YFLIFE_BASE = ""
     YFLIFE_ACCOUNT = None

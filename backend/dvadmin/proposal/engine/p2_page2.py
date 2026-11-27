@@ -10,9 +10,13 @@ If resolution fails we raise StepError (fail loud) and screenshot.
 from __future__ import annotations
 
 import asyncio
+import re
+import time
 
+from playwright.async_api import Locator as PWLocator
 from playwright.async_api import Page
 
+from .config import settings
 from .locator import Element, Locator, LocatorError, collect_candidates, element_selector
 from .portal import Portal, StepError
 
@@ -234,16 +238,61 @@ async def select_level(page: Page, region: str) -> None:
     print(f"     ✅ 命中 [tier={res.tier}] {res.element.text!r}")
 
 
-async def fill_sum_insured(page: Page, amount: int) -> None:
+async def _wait_usable(page: Page, box: PWLocator, what: str,
+                       timeout_s: float) -> None:
+    """Wait until a form control is both visible and enabled.
+
+    After a plan is selected the portal recomputes 計劃詳情 server-side; during
+    that window #sumInsured is rendered hidden/disabled. A 5s timeout is too
+    tight on slower networks, so poll instead of relying on a single wait.
+    """
+    deadline = time.monotonic() + timeout_s
+    logged = False
+    while True:
+        try:
+            if await box.is_visible() and await box.is_enabled():
+                return
+        except Exception:
+            pass
+        if time.monotonic() >= deadline:
+            try:
+                visible = await box.is_visible()
+                enabled = await box.is_enabled()
+            except Exception:
+                visible = enabled = False
+            raise StepError(
+                f"{what}欄位在 {timeout_s:.0f}s 內仍不可用"
+                f"（visible={visible}, enabled={enabled}）；"
+                "通常是『計劃』尚未選中或門戶仍在計算"
+            )
+        if not logged:
+            print(f"     … {what}尚未可用（門戶可能仍在計算），最多等待 {timeout_s:.0f}s")
+            logged = True
+        await page.wait_for_timeout(500)
+
+
+async def fill_sum_insured(page: Page, amount: int,
+                           timeout_s: float | None = None) -> None:
     print(f"  5) 填入保障金額: {amount}")
+    timeout_s = timeout_s if timeout_s is not None else settings.PAGE2_FIELD_TIMEOUT
     box = page.locator("#sumInsured")
-    await box.wait_for(state="visible", timeout=5000)
+    await box.wait_for(state="attached", timeout=timeout_s * 1000)
+    await _wait_usable(page, box, "保障金額", timeout_s)
     await box.click()
     await box.press("Control+A")
     await box.press("Backspace")
     await box.press_sequentially(str(amount), delay=50)   # triggers framework listeners
-    await page.get_by_text("計劃詳情").first.click()        # blur -> validation
+    try:
+        await page.get_by_text("計劃詳情").first.click(timeout=3000)  # blur -> validation
+    except Exception:
+        await box.blur()
     value = await box.input_value()
+    try:
+        entered = int(float(re.sub(r"[^\d.]", "", value or "")))
+    except (TypeError, ValueError):
+        entered = None
+    if entered != amount:
+        raise StepError(f"保障金額填入校驗失敗：期望 {amount}，實際 {value!r}")
     print(f"     ✅ 输入框现值: {value}")
 
 
@@ -285,7 +334,7 @@ async def run(case: dict) -> None:
                 )
 
             try:
-                await select_category(page)
+                await select_category(page, Locator().rules.category_of(case["product"]))
                 await page.wait_for_timeout(1200)
                 await select_product(page, case["product"])
                 await page.wait_for_timeout(1500)
