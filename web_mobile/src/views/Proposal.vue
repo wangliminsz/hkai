@@ -23,7 +23,10 @@
         <van-collapse-item :title="`可生成计划书（${products.length} 个产品）`" name="products">
           <div v-if="!products.length" class="faint small">加载中…</div>
           <div v-for="p in products" :key="p.code" class="prod-item">
-            <div class="prod-name">{{ p.name }} <span class="faint small">{{ p.category ? '· ' + p.category : '' }}</span></div>
+            <div class="prod-name" title="点击填入示例提示词" @click="useExample(p)">
+              <span>{{ p.name }} <span class="faint small">{{ p.category ? '· ' + p.category : '' }}</span></span>
+              <span class="example-hint">示例</span>
+            </div>
             <div v-for="v in p.variants" :key="v.tier || 'default'" class="prod-variant">
               <span v-if="v.tier" class="tier">{{ v.tier }}</span>
               <span>{{ v.periods.join(' / ') }}</span>
@@ -38,6 +41,7 @@
           <button type="button" class="link-btn" @click="fillExample">填入示例</button>
         </div>
         <textarea
+          ref="promptRef"
           v-model="text"
           rows="5"
           class="prompt-area"
@@ -127,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { showToast } from 'vant';
 import AppNav from '@/components/AppNav.vue';
 import StatusBadge from '@/components/StatusBadge.vue';
@@ -149,6 +153,7 @@ const portalId = ref<number | ''>('');
 const portalPicker = ref(false);
 const openProducts = ref<string[]>([]);
 const text = ref('');
+const promptRef = ref<HTMLTextAreaElement | null>(null);
 const drill = ref(false);
 const submitting = ref(false);
 const loading = ref(false);
@@ -160,6 +165,37 @@ const portalLabel = computed(() => portals.value.find((p) => p.id === portalId.v
 const portalColumns = computed(() =>
   portals.value.map((p) => ({ text: p.name, id: p.id }))
 );
+
+function buildExample(p: any) {
+  const variant = p.variants?.[0] || {};
+  const tier = variant.tier || '';
+  const rawPeriod = variant.periods?.[0] || '20年缴';
+  const isSavings = /儲蓄|储蓄|年金/.test(p.category || '');
+  const parts = [
+    'Mr.VIP',
+    '男性',
+    '40 岁',
+    '非吸烟者',
+    `投保${p.name}${tier ? `（${tier}）` : ''}`,
+    isSavings ? '每年保费 1 万美元' : '保额 100 万美元',
+    rawPeriod === '一次过缴付' ? '一次过缴付' : `缴费期 ${rawPeriod.replace(/缴$/, '')}`,
+  ];
+  if (isSavings) parts.push('自保单 20 年起，至保单结束，每年提取最大值');
+  parts.push('居住地中国大陆');
+  return parts.join('，');
+}
+
+function useExample(p: any) {
+  text.value = buildExample(p);
+  nextTick(() => {
+    const el = promptRef.value;
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus();
+    }
+  });
+  showToast({ type: 'success', message: '已填入示例，可直接修改后生成' });
+}
 
 function fillExample() {
   text.value = EXAMPLE_PROMPT;
@@ -296,9 +332,23 @@ onUnmounted(() => {
   border-bottom: none;
 }
 .prod-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 12.5px;
   color: var(--app-text);
   font-weight: 500;
+  cursor: pointer;
+}
+.prod-name:active {
+  opacity: 0.7;
+}
+.example-hint {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 400;
+  color: #7db6ff;
 }
 .prod-variant {
   display: flex;
