@@ -99,16 +99,12 @@ async def run_web(
             state="visible", timeout=15000
         )
         await select_category(page, category)          # ← 走产品自带大类
-        await page.wait_for_timeout(1200)
         await select_product(page, product)
-        await page.wait_for_timeout(1500)
         await select_plan(page, product, case["period"], case.get("tier") or None)
-        await page.wait_for_timeout(1800)
         if rules.field_enabled(product, "level"):
             await select_level(page, case["region"])
         else:
             emit(f"  · 級別: 该产品无此字段，跳过")
-        await page.wait_for_timeout(600)
         await fill_sum_insured(page, case["amount"])
 
         # ---------------- verification gate ----------------

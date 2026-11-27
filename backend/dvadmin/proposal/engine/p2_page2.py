@@ -17,7 +17,14 @@ from playwright.async_api import Locator as PWLocator
 from playwright.async_api import Page
 
 from .config import settings
-from .locator import Element, Locator, LocatorError, collect_candidates, element_selector
+from .locator import (
+    Element,
+    Locator,
+    LocatorError,
+    collect_candidates,
+    element_selector,
+    token_matches,
+)
 from .portal import Portal, StepError
 
 
@@ -171,6 +178,46 @@ async def _open_dropdown(page: Page, *, label: str | None = None, index_hint: in
     await page.wait_for_timeout(800)
 
 
+async def _wait_for_options(
+    page: Page,
+    *,
+    what: str,
+    want: list[str] | None = None,
+    minimum: int = 1,
+    timeout_s: float = 20,
+) -> None:
+    """Wait until an opened dropdown has rendered its real options.
+
+    The trigger can become clickable before its option list is fetched, so
+    fixed sleeps are unreliable on a slow portal. When `want` is given, wait
+    until a visible option matches all those tokens (e.g. "LD1P20").
+    """
+    deadline = time.monotonic() + timeout_s
+    logged = False
+    last_count = 0
+    last_texts: list[str] = []
+    while True:
+        try:
+            opts = page.locator("[role='option']:visible")
+            last_count = await opts.count()
+            last_texts = await opts.all_inner_texts()
+        except Exception:
+            last_count = 0
+            last_texts = []
+        matched = not want or any(token_matches(t, want) for t in last_texts)
+        if last_count >= minimum and matched:
+            return
+        if time.monotonic() >= deadline:
+            raise StepError(
+                f"{what}下拉在 {timeout_s:.0f}s 內仍未加载出所需选项"
+                f"（可见 {last_count} 个: {last_texts[:10]}）"
+            )
+        if not logged:
+            print(f"     … {what}下拉仍在加載，最多等待 {timeout_s:.0f}s")
+            logged = True
+        await page.wait_for_timeout(400)
+
+
 # --------------------------------------------------------------------------
 # Page 2: product selection
 # --------------------------------------------------------------------------
@@ -195,6 +242,7 @@ async def select_category(page: Page, category: str) -> None:
 async def select_product(page: Page, product: str) -> None:
     print(f"  2) 选择产品: {product}")
     await _open_dropdown(page, label="產品")
+    await _wait_for_options(page, what="產品", want=[product.upper()])
     cands = await collect_candidates(page, roles=["option"])
     loc = Locator()
     name = loc.rules.data["products"].get(product.upper(), {}).get("name", "")
@@ -208,15 +256,21 @@ async def select_product(page: Page, product: str) -> None:
     if not res:
         raise StepError(f"未找到产品 {product}；候选: " + "; ".join(str(c) for c in cands))
     await _click_resolved(page, res.element, "product")
-    await page.wait_for_timeout(1500)   # let the plan list populate
     print(f"     ✅ 命中 [tier={res.tier}] {res.element.text!r}")
 
 
 async def select_plan(page: Page, product: str, period, tier: str | None = None) -> None:
     print(f"  3) 选择计划: {product}" + (f" / {tier}" if tier else "") + f" / {period}")
-    await _open_dropdown(page, label="計劃")
-    cands = await collect_candidates(page, roles=["option"])
     loc = Locator()
+    try:
+        tokens = loc.rules.plan_tokens(
+            product, period, loc.rules.normalize_tier(product, tier)
+        )
+    except LocatorError as exc:
+        raise StepError(str(exc)) from exc
+    await _open_dropdown(page, label="計劃")
+    await _wait_for_options(page, what=f"計劃（{product}）", want=tokens or None)
+    cands = await collect_candidates(page, roles=["option"])
     try:
         res = loc.resolve_plan(cands, product, period, tier)   # P1-verified logic
     except LocatorError as exc:
@@ -227,9 +281,11 @@ async def select_plan(page: Page, product: str, period, tier: str | None = None)
 
 async def select_level(page: Page, region: str) -> None:
     print(f"  4) 选择级别: region={region}")
-    await _open_dropdown(page, label="級別")
-    cands = await collect_candidates(page, roles=["option"])
     loc = Locator()
+    canonical = loc.rules.level_text(region)
+    await _open_dropdown(page, label="級別")
+    await _wait_for_options(page, what="級別", want=[canonical] if canonical else None)
+    cands = await collect_candidates(page, roles=["option"])
     try:
         res = loc.resolve_level(cands, region)           # P1-verified logic
     except LocatorError as exc:
@@ -334,14 +390,14 @@ async def run(case: dict) -> None:
                 )
 
             try:
-                await select_category(page, Locator().rules.category_of(case["product"]))
-                await page.wait_for_timeout(1200)
+                rules = Locator().rules
+                await select_category(page, rules.category_of(case["product"]))
                 await select_product(page, case["product"])
-                await page.wait_for_timeout(1500)
-                await select_plan(page, case["product"], case["period"])
-                await page.wait_for_timeout(1800)
-                await select_level(page, case["region"])
-                await page.wait_for_timeout(600)
+                await select_plan(
+                    page, case["product"], case["period"], case.get("tier") or None
+                )
+                if rules.field_enabled(case["product"], "level"):
+                    await select_level(page, case["region"])
                 await fill_sum_insured(page, case["amount"])
             except StepError as exc:
                 shot = await portal.shot("ERROR_page2")
